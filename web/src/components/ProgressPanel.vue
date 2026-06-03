@@ -1,6 +1,5 @@
 <template>
   <div class="progress-panel">
-    <div class="label">生成流水线</div>
     <div class="pipeline">
       <div
         v-for="(node, i) in nodes"
@@ -52,11 +51,10 @@ function lineClass(current, next) {
 <style scoped>
 .progress-panel {
   background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 14px 16px;
+  border-radius: var(--radius); padding: 16px 16px;
   flex: 0 0 250px; display: flex; flex-direction: column;
   overflow: hidden;
 }
-.label { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; letter-spacing: 0.5px; }
 
 .pipeline { flex-shrink: 0; position: relative; }
 .pipe-node { display: flex; align-items: flex-start; gap: 10px; position: relative; padding-bottom: 18px; }
