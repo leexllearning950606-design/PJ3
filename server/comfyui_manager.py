@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 import time
 import httpx
-import asyncio
+from urllib.parse import urlparse
 import os
 import sys
 from config import config
@@ -36,7 +36,8 @@ class ComfyUIManager:
             cmd = [sys.executable, main_script]
 
         env = os.environ.copy()
-        env["COMFYUI_PORT"] = str(config.COMFYUI_BASE_URL).split(":")[-1].rstrip("/")
+        parsed = urlparse(config.COMFYUI_BASE_URL)
+        env["COMFYUI_PORT"] = str(parsed.port or 8188)
 
         print(f"[ComfyUI] 启动: {' '.join(cmd)}")
         try:
@@ -52,7 +53,20 @@ class ComfyUIManager:
             return False
 
         # 等待就绪
-        return self._wait_ready()
+        if self._wait_ready():
+            return True
+        print("[ComfyUI] 启动超时, 正在终止进程...")
+        try:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait()
+        except Exception:
+            pass
+        self.process = None
+        return False
 
     def _wait_ready(self, timeout: int | None = None) -> bool:
         """轮询 ComfyUI 直到就绪或超时。"""
