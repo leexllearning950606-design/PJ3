@@ -53,8 +53,9 @@ async def _run_and_cleanup(task_id: str, user_input: str, queue: asyncio.Queue):
             "event": "error",
             "data": {"message": str(e)[:300]},
         })
-    finally:
         await queue.put({"event": "complete", "data": {"task_id": task_id}})
+    # 注意：不在这里发 complete — interactive 阶段需要 SSE 保持打开
+    # complete 只在用户确认 done 或出错时发送
 
 
 # ---- SSE ----
@@ -136,6 +137,10 @@ async def _interact_and_cleanup(task_id, action, description, depth_path, queue)
 async def api_done(task_id: str):
     """用户确认满意。"""
     await run_done(task_id)
+    # 关闭 SSE 流
+    queue = _active_queues.pop(task_id, None)
+    if queue:
+        await queue.put({"event": "complete", "data": {"task_id": task_id}})
     return {"task_id": task_id, "status": "done"}
 
 

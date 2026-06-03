@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "liked_tags": {
+    "color_tone": [
+      "warm atmosphere"
+    ],
+    "lighting": [
+      "backlighting",
+      "golden hour"
+    ],
+    "style": [],
+    "mood": [],
+    "composition": [
+      "depth of field"
+    ],
+    "quality": []
+  },
+  "disliked_tags": [],
+  "history": [
+    {
+      "input": "一个开心的女孩",
+      "final_prompt": "1girl, solo, safe, blonde hair, short hair, messy hair, light yellow dress, white dress, floral embroidery, barefoot, standing on tiptoes, reaching up, arms raised, reaching for balloon, smiling, clos",
+      "image": "./output\\enhanced\\final_0001.png",
+      "timestamp": "2026-06-03T16:44:25.070870"
+    }
+  ],
+  "created": "2026-06-03T16:40:53.744867",
+  "updated": "2026-06-03T16:44:25.070870"
+}
