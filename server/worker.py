@@ -115,15 +115,16 @@ async def run_pipeline(
             final_urls = [_to_url(p) for p in all_paths]
             # 网格图保存到 output/enhanced/（可被静态文件服务访问）
             import shutil
+            grid_url = ""
             grid_out = os.path.join(os.getcwd(), "output", "enhanced", f"grid_{task_id}.png")
             try:
                 grid_path = _create_grid_image(all_paths, config.COMFYUI_INPUT_DIR, idx=0)
                 if grid_path and os.path.isfile(grid_path):
                     os.makedirs(os.path.dirname(grid_out), exist_ok=True)
                     shutil.copy2(grid_path, grid_out)
-                    grid_path = grid_out
+                    grid_url = _to_url(grid_out)
             except Exception:
-                grid_path = ""
+                pass
             update_task(task_id, final_image_url=final_urls[0] if final_urls else "",
                         grid_image_url=grid_url)
         else:

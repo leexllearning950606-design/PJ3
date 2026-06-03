@@ -865,6 +865,32 @@ async def sdxl_enhancer(state: WorkflowState) -> dict:
     current_negative = sdxl_negative_prompt
     version = 1
 
+    # Web 模式：跳过 CLI 交互菜单，直接返回结果
+    if config.WEB_MODE:
+        from utils.preferences import get_prefs
+        prefs = get_prefs(config.USER_PREFS_PATH)
+        prefs.learn_from_prompt(current_prompt, positive=True)
+        prefs.add_history({"input": state.user_input, "final_prompt": current_prompt[:200], "image": current_result})
+        prefs.save()
+        print(f"\n  [Web] 跳过交互菜单，直接返回结果")
+
+        success = SDXLEnhancerOutput(
+            prompt_id=", ".join(all_prompt_ids),
+            final_image_path=current_result,
+            sdxl_error=None,
+        )
+        state.node_io["sdxl_enhancer"]["output"] = json.loads(success.model_dump_json())
+        state.node_io["sdxl_enhancer"]["output"]["final_image_paths"] = final_paths
+        state.node_io["sdxl_enhancer"]["output"]["grid_path"] = grid_path
+
+        print(f"\n[NODE IO] sdxl_enhancer 成功: {current_result}")
+
+        return {
+            "node_io": state.node_io,
+            "final_image_path": current_result,
+            "final_image_paths": final_paths,
+        }
+
     result = await _regenerate_loop(
         client=client,
         current_image=current_result,

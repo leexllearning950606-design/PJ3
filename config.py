@@ -70,6 +70,7 @@ class Config:
     # --- Web 服务器 ---
     SERVER_HOST = os.getenv("SERVER_HOST", "127.0.0.1")
     SERVER_PORT = int(os.getenv("SERVER_PORT", "8080"))
+    WEB_MODE = os.getenv("WEB_MODE", "true").lower() in ("1", "true", "yes")
 
     # --- 输出 ---
     OUTPUT_DIR = os.getenv("OUTPUT_DIR", "./output")

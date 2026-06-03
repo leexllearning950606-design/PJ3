@@ -6,7 +6,9 @@
     ],
     "lighting": [
       "backlighting",
-      "golden hour"
+      "golden hour",
+      "warm light",
+      "soft lighting"
     ],
     "style": [],
     "mood": [],
@@ -22,8 +24,14 @@
       "final_prompt": "1girl, solo, safe, blonde hair, short hair, messy hair, light yellow dress, white dress, floral embroidery, barefoot, standing on tiptoes, reaching up, arms raised, reaching for balloon, smiling, clos",
       "image": "./output\\enhanced\\final_0001.png",
       "timestamp": "2026-06-03T16:44:25.070870"
+    },
+    {
+      "input": "一位开心的女孩",
+      "final_prompt": "1girl, solo, safe, brown hair, low ponytail, side bangs, white shirt, loose shirt, rolled up sleeves, sitting, cross-legged, legs crossed, looking down, smiling, happy, closed eyes, blush, holding pen",
+      "image": "./output\\enhanced\\final_0001.png",
+      "timestamp": "2026-06-03T16:54:19.164461"
     }
   ],
   "created": "2026-06-03T16:40:53.744867",
-  "updated": "2026-06-03T16:44:25.070870"
+  "updated": "2026-06-03T16:54:19.164461"
 }
