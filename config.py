@@ -33,6 +33,10 @@ class Config:
         "COMFYUI_VAE", ""
     )  # Anime VAE: kl-f8-anime2.vae.pt (空=使用 checkpoint 内置 VAE)
 
+    # --- ComfyUI 自动启动 ---
+    COMFYUI_PATH = os.getenv("COMFYUI_PATH", "D:\\ComfyUI_windows_portable")
+    COMFYUI_STARTUP_WAIT = int(os.getenv("COMFYUI_STARTUP_WAIT", "30"))  # 等待就绪最长秒数
+
     # --- 动漫生成参数 (Animagine XL 4.0) ---
     ANIME_SAMPLER = "euler_ancestral"       # 官方推荐 Euler a（非普通 Euler）
     ANIME_SCHEDULER = "normal"              # Euler a 配合 normal scheduler
@@ -63,13 +67,9 @@ class Config:
     BLENDER_TIMEOUT = int(os.getenv("BLENDER_TIMEOUT", "300"))
     BLENDER_MAX_RETRIES = 3  # 脚本执行失败最大重试次数
 
-    # --- ComfyUI 自动启动 ---
-    COMFYUI_PATH = os.getenv("COMFYUI_PATH", "D:\\ComfyUI_windows_portable")
-    COMFYUI_STARTUP_WAIT = int(os.getenv("COMFYUI_STARTUP_WAIT", "30"))  # 等待就绪最长秒数
-
     # --- Web 服务器 ---
     SERVER_HOST = os.getenv("SERVER_HOST", "127.0.0.1")
-    SERVER_PORT = int(os.getenv("SERVER_PORT", "8000"))
+    SERVER_PORT = int(os.getenv("SERVER_PORT", "8080"))
 
     # --- 输出 ---
     OUTPUT_DIR = os.getenv("OUTPUT_DIR", "./output")
