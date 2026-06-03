@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
 from server.worker import run_pipeline, run_interact, run_done
 from server.task_store import (
-    TaskRecord, add_task, get_task, update_task, search_tasks,
+    TaskRecord, add_task_in_memory, get_task, update_task, search_tasks, finalize_task,
 )
 from server.comfyui_manager import comfyui
 from config import config
@@ -32,7 +32,7 @@ async def api_generate(req: Request):
     record = TaskRecord(
         id=task_id, user_input=user_input, status="running",
     )
-    add_task(record)
+    add_task_in_memory(record)
 
     # 创建事件队列，后台启动管线
     queue: asyncio.Queue = asyncio.Queue()
@@ -137,6 +137,8 @@ async def _interact_and_cleanup(task_id, action, description, depth_path, queue)
 async def api_done(task_id: str):
     """用户确认满意。"""
     await run_done(task_id)
+    # 将任务从内存写入历史
+    finalize_task(task_id)
     # 关闭 SSE 流
     queue = _active_queues.pop(task_id, None)
     if queue:

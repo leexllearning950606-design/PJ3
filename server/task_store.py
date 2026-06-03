@@ -9,6 +9,9 @@ HISTORY_PATH = "./output/history.json"
 THUMB_DIR = "./output/thumbnails"
 MAX_HISTORY = 200
 
+# 活跃任务（内存中，未确认不写入历史）
+_active_tasks: dict[str, "TaskRecord"] = {}
+
 
 class TaskRecord:
     """历史任务记录。"""
@@ -82,15 +85,20 @@ def save_history(tasks: list[TaskRecord]):
         json.dump([t.to_dict() for t in tasks], f, ensure_ascii=False, indent=2)
 
 
-def add_task(record: TaskRecord):
-    """追加一条任务到历史。"""
-    tasks = load_history()
-    tasks.append(record)
-    save_history(tasks)
+def add_task_in_memory(record: "TaskRecord"):
+    """添加任务到内存（不写入历史）。"""
+    _active_tasks[record.id] = record
 
 
 def update_task(task_id: str, **kwargs):
-    """更新任务字段。"""
+    """更新任务字段（先查内存，再查历史）。"""
+    t = _active_tasks.get(task_id)
+    if t:
+        for k, v in kwargs.items():
+            setattr(t, k, v)
+        return
+
+    # fallback: 查历史并更新
     tasks = load_history()
     for t in tasks:
         if t.id == task_id:
@@ -100,12 +108,29 @@ def update_task(task_id: str, **kwargs):
     save_history(tasks)
 
 
-def get_task(task_id: str) -> Optional[TaskRecord]:
-    """获取单个任务。"""
+def get_task(task_id: str) -> Optional["TaskRecord"]:
+    """获取单个任务（先查内存，再查历史）。"""
+    if task_id in _active_tasks:
+        return _active_tasks[task_id]
     for t in load_history():
         if t.id == task_id:
             return t
     return None
+
+
+def add_task(record: "TaskRecord"):
+    """直接追加到历史文件。"""
+    tasks = load_history()
+    tasks.append(record)
+    save_history(tasks)
+
+
+def finalize_task(task_id: str):
+    """将任务从内存移到历史（用户确认"满意保存"时调用）。"""
+    t = _active_tasks.pop(task_id, None)
+    if t:
+        t.status = "done"
+        add_task(t)
 
 
 def search_tasks(query: str = "", page: int = 1, limit: int = 20) -> tuple[list[TaskRecord], int]:

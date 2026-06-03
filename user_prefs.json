@@ -8,7 +8,8 @@
       "backlighting",
       "golden hour",
       "warm light",
-      "soft lighting"
+      "soft lighting",
+      "sunlight"
     ],
     "style": [],
     "mood": [],
@@ -30,8 +31,20 @@
       "final_prompt": "1girl, solo, safe, brown hair, low ponytail, side bangs, white shirt, loose shirt, rolled up sleeves, sitting, cross-legged, legs crossed, looking down, smiling, happy, closed eyes, blush, holding pen",
       "image": "./output\\enhanced\\final_0001.png",
       "timestamp": "2026-06-03T16:54:19.164461"
+    },
+    {
+      "input": "一位开心笑的女孩",
+      "final_prompt": "1girl, solo, safe, black hair, low ponytail, sidelocks, white dress, collared dress, shell buttons, smiling, laughing, open mouth, teeth, happy, eyes closed, crescent eyes, holding bouquet, daisy flow",
+      "image": "./output\\enhanced\\final_0001.png",
+      "timestamp": "2026-06-03T17:01:23.029376"
+    },
+    {
+      "input": "一个开心的女陔",
+      "final_prompt": "1girl, solo, safe, black hair, twintails, braided pigtails, blue paint on hair, lemon yellow dress, cotton dress, short dress, bare legs, barefoot, child, 8 years old, holding jar, glass jar, fireflie",
+      "image": "./output\\enhanced\\final_0001.png",
+      "timestamp": "2026-06-03T17:11:21.032779"
     }
   ],
   "created": "2026-06-03T16:40:53.744867",
-  "updated": "2026-06-03T16:54:19.164461"
+  "updated": "2026-06-03T17:11:21.032779"
 }

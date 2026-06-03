@@ -15,20 +15,28 @@
 </template>
 
 <script setup>
-defineProps({ imageUrl: String, alt: { type: String, default: '' } })
+import { watch } from 'vue'
+const props = defineProps({ imageUrl: String, alt: { type: String, default: '' } })
 defineEmits(['lightbox'])
+watch(() => props.imageUrl, (val) => {
+  console.log('[DEBUG] ResultDisplay imageUrl changed:', val)
+})
 </script>
 
 <style scoped>
 .result-display {
   background: var(--bg-secondary); border: 1px solid var(--border);
   border-radius: var(--radius); min-height: 380px;
-  display: flex; align-items: center; justify-content: center;
-  flex: 1; overflow: hidden;
+  overflow: hidden; position: relative;
+  flex: 1;
 }
 .result-display.empty { background: var(--bg-primary); }
-.image-wrapper { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-.image-wrapper img { max-width: 100%; max-height: 500px; object-fit: contain; border-radius: 4px; cursor: pointer; }
+.image-wrapper {
+  width: 100%; height: 100%; position: absolute; top: 0; left: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.image-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; cursor: pointer; }
+.placeholder { text-align: center; color: var(--text-secondary); }
 .image-actions {
   position: absolute; bottom: 8px; right: 8px;
   display: flex; gap: 8px;

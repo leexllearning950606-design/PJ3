@@ -95,9 +95,11 @@ async function startGenerate(userInput) {
         store.gridImageUrls = data.image_urls || []
       })
       .on('interactive', (data) => {
+        console.log('[DEBUG] interactive event data:', JSON.stringify(data))
         store.status = 'waiting_user'
         store.finalImageUrl = data.image_url
         store.progress = 100
+        console.log('[DEBUG] finalImageUrl set to:', store.finalImageUrl)
       })
       .on('complete', () => {
         if (store.status === 'running') store.status = 'done'
