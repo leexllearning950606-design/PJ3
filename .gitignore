@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+output/
+.superpowers/
+.claude/
+node_modules/
+dist/
+web/node_modules/
+web/dist/
+web/package-lock.json
