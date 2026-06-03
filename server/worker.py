@@ -222,7 +222,9 @@ async def run_interact(
             positive_prompt=new_prompt,
             negative_prompt=task.sdxl_negative_prompt or "",
             seed=seed,
-            is_txt2img=not bool(depth_name),
+            is_txt2img=False,       # img2img: 保留旧图结构
+            denoise=0.75,           # 高重绘度: 允许大幅改变
+            cn_strength=0.15,       # 弱深度约束: 只参考空间不要照搬
             prefix=f"v{task.version + 1}",
         )
 

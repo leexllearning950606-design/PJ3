@@ -1399,9 +1399,13 @@ async def public_run_single_pass(
     negative_prompt: str = "",
     seed: int = 42,
     is_txt2img: bool = False,
+    denoise: float = 0.65,
+    cn_strength = None,  # float or None: 默认使用 config 值
     prefix: str = "enhanced",
 ) -> Optional[str]:
     """公开包装：调用 _run_single_pass。"""
+    if cn_strength is None:
+        cn_strength = config.ANIME_DEPTH_CN_STRENGTH
     return await _run_single_pass(
         client=client,
         image_filename=image_filename,
@@ -1409,8 +1413,8 @@ async def public_run_single_pass(
         positive_prompt=positive_prompt,
         negative_prompt=negative_prompt,
         seed=seed,
-        denoise=0.65,
-        cn_strength=config.ANIME_DEPTH_CN_STRENGTH,
+        denoise=denoise,
+        cn_strength=cn_strength,
         steps=config.ANIME_STEPS,
         cfg=config.ANIME_CFG,
         prefix=prefix,
