@@ -3,10 +3,12 @@
   <main class="main-content">
     <RouterView />
   </main>
+  <TheFooter />
 </template>
 
 <script setup>
 import TheNav from './components/TheNav.vue'
+import TheFooter from './components/TheFooter.vue'
 </script>
 
 <style scoped>
