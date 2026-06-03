@@ -6,7 +6,7 @@
         <h3>{{ cat.label }}</h3>
         <div class="tags">
           <span v-for="tag in getTags(cat.key)" :key="tag" class="tag">
-            {{ tag }}
+            {{ store.getDisplayLabel(tag) }}
             <button class="tag-remove" @click="removeTag(cat.key, tag)">×</button>
           </span>
           <span v-if="!getTags(cat.key).length" class="empty-tag">暂无偏好</span>
