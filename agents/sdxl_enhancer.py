@@ -867,11 +867,6 @@ async def sdxl_enhancer(state: WorkflowState) -> dict:
 
     # Web 模式：跳过 CLI 交互菜单，直接返回结果
     if config.WEB_MODE:
-        from utils.preferences import get_prefs
-        prefs = get_prefs(config.USER_PREFS_PATH)
-        prefs.learn_from_prompt(current_prompt, positive=True)
-        prefs.add_history({"input": state.user_input, "final_prompt": current_prompt[:200], "image": current_result})
-        prefs.save()
         print(f"\n  [Web] 跳过交互菜单，直接返回结果")
 
         success = SDXLEnhancerOutput(
@@ -1071,6 +1066,7 @@ async def _rewrite_prompt(
     current_prompt: str,
     user_request: str,
     category: str,
+    pref_context: str = "",
 ) -> str:
     """调用 LLM 根据用户要求改写 Danbooru 提示词。"""
     from utils.helpers import get_llm
@@ -1078,7 +1074,10 @@ async def _rewrite_prompt(
     system = f"""你是 Danbooru 标签专家。用户想修改图片的{category}。
 
 当前提示词: {current_prompt}
-
+"""
+    if pref_context:
+        system += f"\n## 用户审美偏好\n{pref_context}\n"
+    system += f"""
 规则：
 1. 只修改与"{category}"相关的标签，其他标签保持原样
 2. 保持标签顺序：角色→姿态→手部→场景→光线→质量标签（末尾）
@@ -1450,6 +1449,7 @@ async def public_rewrite_prompt(
     current_prompt: str,
     user_request: str,
     category: str,
+    pref_context: str = "",
 ) -> str:
     """公开包装：调用 _rewrite_prompt。"""
-    return await _rewrite_prompt(current_prompt, user_request, category)
+    return await _rewrite_prompt(current_prompt, user_request, category, pref_context)

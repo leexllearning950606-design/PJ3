@@ -201,8 +201,12 @@ async def run_interact(
         "data": {"node": "AI 图像生成", "status": "running", "progress": 80},
     })
 
+    # 注入用户偏好到改写上下文
+    prefs = get_prefs(config.USER_PREFS_PATH)
+    pref_context = prefs.get_injection_text()
+
     new_prompt = await public_rewrite_prompt(
-        task.sdxl_prompt or "", description, category,
+        task.sdxl_prompt or "", description, category, pref_context,
     )
     update_task(task_id, sdxl_prompt=new_prompt)
 
@@ -268,6 +272,67 @@ async def run_interact(
     })
 
 
+async def run_dislike(
+    task_id: str,
+    reason: str,
+    event_queue: asyncio.Queue,
+):
+    """用户不喜欢：LLM 分析原因 → 提取不喜欢的标签 → 记录。"""
+    from server.task_store import get_task
+    task = get_task(task_id)
+    if not task:
+        await event_queue.put({
+            "event": "error", "data": {"message": "任务不存在"},
+        })
+        return
+
+    # 用 LLM 分析用户反馈，提取不喜欢的标签
+    disliked_tags = await _analyze_dislike_reason(
+        task.sdxl_prompt or "", reason,
+    )
+
+    # 记录到偏好
+    prefs = get_prefs(config.USER_PREFS_PATH)
+    prefs.add_disliked(disliked_tags)
+    prefs.add_history({
+        "input": task.user_input or "",
+        "final_prompt": task.sdxl_prompt[:200],
+        "image": task.final_image_url or "",
+        "disliked": True,
+        "reason": reason,
+        "disliked_tags": disliked_tags,
+    })
+    prefs.save()
+
+    update_task(task_id, status="done")
+
+    await event_queue.put({
+        "event": "complete",
+        "data": {"task_id": task_id, "message": f"已记录不喜欢: {', '.join(disliked_tags[:5])}"},
+    })
+
+
+async def _analyze_dislike_reason(prompt: str, reason: str) -> list[str]:
+    """用 LLM 分析用户不喜欢的原因，提取对应的 Danbooru 标签。"""
+    from utils.helpers import get_llm
+    system = f"""你是 Danbooru 标签分析专家。用户不喜欢当前生成的图片，请从提示词中找出用户可能不喜欢的标签。
+
+用户反馈: {reason}
+
+当前提示词: {prompt}
+
+请输出用户可能不喜欢的标签（每行一个），只输出标签名，不要解释。最多输出 5 个标签。
+如果用户反馈不涉及具体标签，输出空。"""
+    try:
+        llm = get_llm(temperature=0.1)
+        response = await llm.ainvoke([("system", system), ("user", reason)])
+        tags = [t.strip().rstrip(",") for t in response.content.strip().split("\n") if t.strip()]
+        return [t for t in tags if t and not t.startswith("#")][:5]
+    except Exception as e:
+        print(f"[WARN] 不喜欢分析异常: {e}")
+        return []
+
+
 async def run_done(task_id: str):
     """用户满意保存：持久化偏好。"""
     from server.task_store import get_task
@@ -277,10 +342,15 @@ async def run_done(task_id: str):
 
     update_task(task_id, status="done")
 
-    # 记录偏好
+    # 记录偏好 + 历史
     if task.sdxl_prompt:
         prefs = get_prefs(config.USER_PREFS_PATH)
         prefs.learn_from_prompt(task.sdxl_prompt, positive=True)
+        prefs.add_history({
+            "input": task.user_input or "",
+            "final_prompt": task.sdxl_prompt[:200],
+            "image": task.final_image_url or "",
+        })
         prefs.save()
 
 

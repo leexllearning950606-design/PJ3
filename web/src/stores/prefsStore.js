@@ -96,5 +96,9 @@ export const usePrefsStore = defineStore('prefs', () => {
     data.value = await resetPreferences()
   }
 
-  return { data, loading, categories, getDisplayLabel, load, addTags, reset }
+  async function addDisliked(tags) {
+    data.value = await updatePreferences('', tags, true)
+  }
+
+  return { data, loading, categories, getDisplayLabel, load, addTags, reset, addDisliked }
 })

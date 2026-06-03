@@ -18,6 +18,7 @@
       :visible="taskStatus === 'waiting_user'"
       :disabled="taskStatus === 'running'"
       @select="handleInteract"
+      @dislike="handleDislike"
       @done="handleDone"
     />
 
@@ -46,7 +47,7 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue'
 import { useTaskStore } from '../stores/taskStore'
-import { generate, interact, markDone } from '../api/client'
+import { generate, interact, markDone, markDislike } from '../api/client'
 import { connectSSE } from '../api/sse'
 import PromptInput from '../components/PromptInput.vue'
 import ProgressPanel from '../components/ProgressPanel.vue'
@@ -65,7 +66,7 @@ const showLightbox = ref(null)
 
 const actionLabels = {
   lighting: '换光线', scene: '换场景', character: '微调角色',
-  pose: '换姿态', style: '换风格',
+  pose: '换姿态', style: '换风格', dislike: '不喜欢',
 }
 const currentActionLabel = computed(() => actionLabels[currentAction.value] || '')
 const descPlaceholder = computed(() => {
@@ -76,6 +77,7 @@ const descPlaceholder = computed(() => {
     pose: '例如：站立回头、手托腮、伸手...',
     style: '例如：水彩风格、线稿风格...',
   }
+  if (currentAction.value === 'dislike') return '哪里不满意？光线太刺眼？颜色不对？...'
   return placeholders[currentAction.value] || '描述你想要的变化...'
 })
 
@@ -121,10 +123,29 @@ function handleInteract(action) {
   nextTick(() => descInput.value?.focus())
 }
 
+function handleDislike() {
+  currentAction.value = 'dislike'
+  descText.value = ''
+  showDescInput.value = true
+  nextTick(() => descInput.value?.focus())
+}
+
 async function submitInteract() {
   if (!descText.value.trim()) return
   showDescInput.value = false
   store.status = 'running'
+
+  // 不喜欢走专门端点
+  if (currentAction.value === 'dislike') {
+    try {
+      await markDislike(store.currentTaskId, descText.value.trim())
+      store.status = 'done'
+    } catch (e) {
+      store.status = 'error'
+      store.errorMessage = e.message
+    }
+    return
+  }
 
   try {
     await interact(store.currentTaskId, currentAction.value, descText.value.trim())

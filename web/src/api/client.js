@@ -26,6 +26,16 @@ export async function markDone(taskId) {
   return res.json()
 }
 
+export async function markDislike(taskId, reason) {
+  const res = await fetch(`${BASE}/tasks/${taskId}/dislike`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason }),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 export async function fetchTasks(search = '', page = 1, limit = 20) {
   const params = new URLSearchParams({ search, page, limit })
   const res = await fetch(`${BASE}/tasks?${params}`)
@@ -45,11 +55,11 @@ export async function fetchPreferences() {
   return res.json()
 }
 
-export async function updatePreferences(category, tags) {
+export async function updatePreferences(category, tags, dislike = false) {
   const res = await fetch(`${BASE}/preferences`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ category, tags }),
+    body: JSON.stringify({ category, tags, dislike }),
   })
   if (!res.ok) throw new Error(await res.text())
   return res.json()

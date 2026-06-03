@@ -17,12 +17,28 @@
         </div>
       </div>
     </div>
+
+    <!-- 不喜欢的标签 -->
+    <div class="dislike-section" v-if="dislikedTags.length">
+      <h3>👎 不喜欢</h3>
+      <div class="tags">
+        <span v-for="tag in dislikedTags" :key="tag" class="tag dislike-tag">
+          {{ store.getDisplayLabel(tag) }}
+          <button class="tag-remove" @click="removeDisliked(tag)">×</button>
+        </span>
+      </div>
+    </div>
+    <div class="add-dislike">
+      <input v-model="newDislike" type="text" placeholder="添加不喜欢的标签..." @keyup.enter="addDisliked" />
+      <button @click="addDisliked">+</button>
+    </div>
+
     <button class="danger" @click="handleReset" style="margin-top:16px;">🔄 重置所有偏好</button>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, computed } from 'vue'
 import { usePrefsStore } from '../stores/prefsStore'
 
 const store = usePrefsStore()
@@ -44,6 +60,24 @@ async function removeTag(catKey, tag) {
   if (store.data?.liked_tags) {
     store.data.liked_tags[catKey] = current
     await store.addTags(catKey, [])
+  }
+}
+
+const newDislike = ref('')
+const dislikedTags = computed(() => store.data?.disliked_tags || [])
+
+async function addDisliked() {
+  const t = newDislike.value.trim()
+  if (!t) return
+  await store.addDisliked([t])
+  newDislike.value = ''
+}
+
+async function removeDisliked(tag) {
+  const current = dislikedTags.value.filter(t => t !== tag)
+  if (store.data) {
+    store.data.disliked_tags = current
+    await store.addDisliked([])
   }
 }
 
@@ -69,4 +103,11 @@ onMounted(() => store.load())
 .add-tag { display: flex; gap: 4px; }
 .add-tag input { padding: 5px 8px; font-size: 12px; }
 .add-tag button { padding: 4px 10px; font-size: 14px; }
+
+.dislike-section { margin-top: 20px; padding: 14px; background: var(--bg-secondary); border: 1px solid var(--accent-red); border-radius: var(--radius); }
+.dislike-section h3 { color: var(--accent-red); margin-bottom: 8px; font-size: var(--font-base); }
+.dislike-tag { background: #3a1a1a; color: #f87171; }
+.add-dislike { display: flex; gap: 4px; margin-top: 8px; }
+.add-dislike input { padding: 5px 8px; font-size: 12px; }
+.add-dislike button { padding: 4px 10px; font-size: 14px; }
 </style>

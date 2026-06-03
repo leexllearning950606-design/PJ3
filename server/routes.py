@@ -5,7 +5,7 @@ import uuid
 import os
 from fastapi import APIRouter, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse
-from server.worker import run_pipeline, run_interact, run_done
+from server.worker import run_pipeline, run_interact, run_done, run_dislike
 from server.task_store import (
     TaskRecord, add_task_in_memory, get_task, update_task, search_tasks, finalize_task,
 )
@@ -133,6 +133,32 @@ async def _interact_and_cleanup(task_id, action, description, depth_path, queue)
         await queue.put({"event": "error", "data": {"message": str(e)[:300]}})
 
 
+@router.post("/tasks/{task_id}/dislike")
+async def api_dislike(task_id: str, req: Request):
+    """用户不喜欢：分析原因并记录偏好。"""
+    body = await req.json()
+    reason = body.get("reason", "").strip()
+    if not reason:
+        raise HTTPException(400, "reason 不能为空")
+
+    queue = _active_queues.pop(task_id, None)
+    if not queue:
+        queue = asyncio.Queue()
+        _active_queues[task_id] = queue
+
+    asyncio.create_task(_dislike_and_cleanup(task_id, reason, queue))
+    return {"task_id": task_id, "message": "正在分析..."}
+
+
+async def _dislike_and_cleanup(task_id, reason, queue):
+    try:
+        await run_dislike(task_id, reason, queue)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        await queue.put({"event": "error", "data": {"message": str(e)[:300]}})
+
+
 @router.post("/tasks/{task_id}/done")
 async def api_done(task_id: str):
     """用户确认满意。"""
@@ -185,14 +211,24 @@ async def api_get_prefs():
 
 @router.post("/preferences")
 async def api_update_prefs(req: Request):
-    """更新偏好标签。"""
+    """更新偏好标签。支持 dislike=true 添加不喜欢标签。"""
     body = await req.json()
     from utils.preferences import get_prefs
     prefs = get_prefs(config.USER_PREFS_PATH)
     category = body.get("category", "")
     tags = body.get("tags", [])
-    if category and tags:
-        prefs.add_liked(tags, category)
+    dislike = body.get("dislike", False)
+
+    if dislike:
+        if tags:
+            prefs.add_disliked(tags)
+            prefs.save()
+    elif category:
+        if tags:
+            prefs.add_liked(tags, category)
+        else:
+            # 空 tags → 清空该分类
+            prefs.data["liked_tags"][category] = []
         prefs.save()
     return prefs.data
 

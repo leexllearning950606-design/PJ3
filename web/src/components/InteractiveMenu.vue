@@ -16,7 +16,7 @@ defineProps({
   visible: Boolean,
   disabled: Boolean,
 })
-defineEmits(['select', 'done'])
+defineEmits(['select', 'done', 'dislike'])
 
 const options = [
   { action: 'lighting', emoji: '☀️', label: '换光线' },
@@ -24,6 +24,7 @@ const options = [
   { action: 'character', emoji: '✏️', label: '微调角色' },
   { action: 'pose', emoji: '🔄', label: '换姿态' },
   { action: 'style', emoji: '🖼️', label: '换风格' },
+  { action: 'dislike', emoji: '👎', label: '不喜欢' },
 ]
 </script>
 
