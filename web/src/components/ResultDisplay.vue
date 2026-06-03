@@ -26,9 +26,9 @@ watch(() => props.imageUrl, (val) => {
 <style scoped>
 .result-display {
   background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: var(--radius); min-height: 380px;
+  border-radius: var(--radius);
   overflow: hidden; position: relative;
-  flex: 1;
+  flex: 1; min-height: 0;
 }
 .result-display.empty { background: var(--bg-primary); }
 .image-wrapper {
@@ -37,6 +37,8 @@ watch(() => props.imageUrl, (val) => {
 }
 .image-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; cursor: pointer; }
 .placeholder { text-align: center; color: var(--text-secondary); }
+.placeholder-icon { font-size: 40px; margin-bottom: 6px; }
+.placeholder-text { font-size: var(--font-sm); }
 .image-actions {
   position: absolute; bottom: 8px; right: 8px;
   display: flex; gap: 8px;

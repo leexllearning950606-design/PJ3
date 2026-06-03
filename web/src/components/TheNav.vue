@@ -16,13 +16,13 @@ import { RouterLink } from 'vue-router'
 
 <style scoped>
 .nav {
-  display: flex; align-items: center; gap: 24px;
-  padding: 12px 24px; background: var(--bg-secondary);
+  display: flex; align-items: center; gap: 20px; flex-shrink: 0;
+  padding: 8px 20px; background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
 }
-.nav-brand { font-weight: 700; font-size: 16px; }
-.nav-links { display: flex; gap: 16px; }
-.nav-links a { color: var(--text-secondary); font-size: 14px; padding: 4px 8px; border-radius: 4px; }
+.nav-brand { font-weight: 700; font-size: var(--font-lg); }
+.nav-links { display: flex; gap: 12px; }
+.nav-links a { color: var(--text-secondary); font-size: var(--font-sm); padding: 3px 8px; border-radius: 4px; }
 .nav-links a:hover { color: var(--text-primary); text-decoration: none; }
 .nav-links a.router-link-exact-active { color: var(--accent); background: var(--bg-tertiary); }
 </style>

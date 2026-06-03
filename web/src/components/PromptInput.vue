@@ -26,13 +26,13 @@ const text = ref('')
 
 <style scoped>
 .prompt-input {
-  display: flex; gap: 12px;
-  padding: 16px; background: var(--bg-secondary);
+  display: flex; gap: 10px; align-items: center; flex-shrink: 0;
+  padding: 10px 14px; background: var(--bg-secondary);
   border-radius: var(--radius); border: 1px solid var(--border);
 }
-.prompt-input input { flex: 1; }
+.prompt-input input { flex: 1; font-size: var(--font-base); }
 .prompt-input button {
   white-space: nowrap; font-weight: 600;
-  padding: 10px 24px;
+  padding: 8px 20px; font-size: var(--font-base);
 }
 </style>

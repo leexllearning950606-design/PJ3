@@ -13,10 +13,11 @@ import TheFooter from './components/TheFooter.vue'
 
 <style scoped>
 .main-content {
-  flex: 1;
-  padding: 20px 24px;
+  flex: 1; min-height: 0;
+  padding: 14px 20px;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
+  overflow: hidden;
 }
 </style>

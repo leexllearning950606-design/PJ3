@@ -151,8 +151,8 @@ async function handleDone() {
 </script>
 
 <style scoped>
-.generate-view { display: flex; flex-direction: column; gap: 12px; }
-.generate-body { display: flex; gap: 16px; }
+.generate-view { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+.generate-body { display: flex; gap: 14px; flex: 1; min-height: 0; }
 
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -161,10 +161,8 @@ async function handleDone() {
 }
 .modal-box {
   background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: 12px; padding: 24px; min-width: 400px;
+  border-radius: 12px; padding: 20px; min-width: 360px;
 }
-.modal-box h3 { margin-bottom: 12px; }
-.modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
-
-
+.modal-box h3 { margin-bottom: 10px; font-size: var(--font-lg); }
+.modal-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
 </style>
