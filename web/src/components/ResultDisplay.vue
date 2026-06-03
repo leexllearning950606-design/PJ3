@@ -29,6 +29,7 @@ watch(() => props.imageUrl, (val) => {
   border-radius: var(--radius);
   overflow: hidden; position: relative;
   flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
 }
 .result-display.empty { background: var(--bg-primary); }
 .image-wrapper {
@@ -37,17 +38,14 @@ watch(() => props.imageUrl, (val) => {
 }
 .image-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; cursor: pointer; }
 .placeholder { text-align: center; color: var(--text-secondary); }
-.placeholder-icon { font-size: 40px; margin-bottom: 6px; }
-.placeholder-text { font-size: var(--font-sm); }
+.placeholder-icon { font-size: 48px; margin-bottom: 8px; }
+.placeholder-text { font-size: var(--font-base); }
 .image-actions {
   position: absolute; bottom: 8px; right: 8px;
   display: flex; gap: 8px;
 }
 .image-actions a, .image-actions button {
-  background: rgba(0,0,0,0.7); color: #fff; font-size: 12px;
+  background: rgba(0,0,0,0.7); color: #fff; font-size: var(--font-sm);
   padding: 4px 10px; border-radius: 4px; border: none;
 }
-.placeholder { text-align: center; color: var(--text-secondary); }
-.placeholder-icon { font-size: 48px; margin-bottom: 8px; }
-.placeholder-text { font-size: 14px; }
 </style>

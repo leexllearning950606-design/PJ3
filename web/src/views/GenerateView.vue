@@ -152,7 +152,7 @@ async function handleDone() {
 
 <style scoped>
 .generate-view { display: flex; flex-direction: column; gap: 10px; height: 100%; }
-.generate-body { display: flex; gap: 14px; flex: 1; min-height: 0; }
+.generate-body { display: flex; gap: 16px; flex: 1; min-height: 0; }
 
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
