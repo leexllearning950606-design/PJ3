@@ -39,10 +39,7 @@
       </div>
     </div>
 
-    <!-- Lightbox -->
-    <div v-if="showLightbox" class="lightbox" @click="showLightbox = null">
-      <img :src="showLightbox" @click.stop />
-    </div>
+    <ImageLightbox :visible="!!showLightbox" :src="showLightbox" @close="showLightbox = null" />
   </div>
 </template>
 
@@ -55,6 +52,7 @@ import PromptInput from '../components/PromptInput.vue'
 import ProgressPanel from '../components/ProgressPanel.vue'
 import ResultDisplay from '../components/ResultDisplay.vue'
 import InteractiveMenu from '../components/InteractiveMenu.vue'
+import ImageLightbox from '../components/ImageLightbox.vue'
 
 const store = useTaskStore()
 const taskStatus = computed(() => store.status)
@@ -166,10 +164,5 @@ async function handleDone() {
 .modal-box h3 { margin-bottom: 12px; }
 .modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
 
-.lightbox {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center;
-  z-index: 200; cursor: zoom-out;
-}
-.lightbox img { max-width: 90%; max-height: 90%; object-fit: contain; }
+
 </style>
