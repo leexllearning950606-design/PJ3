@@ -14,7 +14,7 @@ import TheFooter from './components/TheFooter.vue'
 <style scoped>
 .main-content {
   flex: 1; min-height: 0;
-  padding: 14px 20px;
+  padding: 16px 24px;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;

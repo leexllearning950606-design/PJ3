@@ -9,10 +9,10 @@
   --accent-green: #7ec699;
   --accent-red: #e05252;
   --radius: 8px;
-  --font-sm: 12px;
-  --font-base: 14px;
-  --font-lg: 16px;
-  --font-xl: 20px;
+  --font-sm: 13px;
+  --font-base: 15px;
+  --font-lg: 18px;
+  --font-xl: 22px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -35,9 +35,9 @@ button {
   border: 1px solid var(--border);
   background: var(--bg-tertiary);
   color: var(--text-primary);
-  padding: 6px 14px;
+  padding: 8px 16px;
   border-radius: var(--radius);
-  font-size: var(--font-sm);
+  font-size: var(--font-base);
   transition: background 0.15s;
 }
 button:hover { background: #30363d; }
@@ -49,9 +49,9 @@ input, textarea {
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: var(--radius);
-  font-size: var(--font-sm);
+  font-size: var(--font-base);
   width: 100%;
 }
 input:focus, textarea:focus { outline: none; border-color: var(--accent); }

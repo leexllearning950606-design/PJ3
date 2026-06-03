@@ -35,17 +35,17 @@ defineProps({
 <style scoped>
 .progress-panel {
   background: var(--bg-secondary); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 12px;
-  flex: 0 0 220px; display: flex; flex-direction: column;
+  border-radius: var(--radius); padding: 14px;
+  flex: 0 0 240px; display: flex; flex-direction: column;
   overflow: hidden;
 }
-.label { font-size: 10px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 6px; letter-spacing: 0.5px; }
+.label { font-size: 11px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; letter-spacing: 0.5px; }
 .nodes { flex-shrink: 0; }
-.node { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: var(--font-sm); }
+.node { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: var(--font-sm); }
 .node.pending { color: var(--text-secondary); }
 .node.running { color: var(--accent); }
 .node.done { color: var(--accent-green); }
-.node-icon { width: 14px; text-align: center; font-size: 11px; }
+.node-icon { width: 16px; text-align: center; font-size: 13px; }
 .progress-bar-track {
   background: var(--bg-tertiary); border-radius: 3px; height: 4px; margin: 8px 0; flex-shrink: 0;
   overflow: hidden;

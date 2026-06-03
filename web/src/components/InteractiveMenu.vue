@@ -29,9 +29,9 @@ const options = [
 
 <style scoped>
 .interactive-menu {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0;
-  padding: 10px 14px; background: var(--bg-secondary);
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex-shrink: 0;
+  padding: 12px 16px; background: var(--bg-secondary);
   border: 1px solid var(--border); border-radius: var(--radius);
 }
-.menu-label { font-size: var(--font-sm); color: var(--text-secondary); margin-right: 2px; }
+.menu-label { font-size: var(--font-base); color: var(--text-secondary); margin-right: 4px; }
 </style>
