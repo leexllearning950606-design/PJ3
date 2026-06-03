@@ -17,6 +17,12 @@ from utils.preferences import get_prefs
 from server.task_store import TaskRecord, update_task
 
 
+def _get_output(node_state: dict, node_name: str) -> dict:
+    """从 astream 返回的 dict 中提取节点的 output。"""
+    node_io = node_state.get("node_io", {})
+    return node_io.get(node_name, {}).get("output", {})
+
+
 async def run_pipeline(
     user_input: str,
     task_id: str,
@@ -24,6 +30,7 @@ async def run_pipeline(
 ):
     """执行完整的生成管线，通过 event_queue 推送进度事件。"""
     state = WorkflowState(user_input=user_input)
+    final_state = None  # 保存最后的状态 dict
 
     try:
         # ---- 节点 1: 场景扩写 ----
@@ -35,9 +42,10 @@ async def run_pipeline(
         async for step in app.astream(state):
             node_name = list(step.keys())[0]
             node_state = step[node_name]
+            final_state = node_state  # 每次更新
 
             if node_name == "text_expander":
-                output = node_state.get_node_output("text_expander")
+                output = _get_output(node_state, "text_expander")
                 expanded = output.get("expanded_text", "")
                 update_task(task_id, expanded_text=expanded)
                 await event_queue.put({
@@ -49,7 +57,7 @@ async def run_pipeline(
                 })
 
             elif node_name == "coder_agent":
-                output = node_state.get_node_output("coder_agent")
+                output = _get_output(node_state, "coder_agent")
                 prompt = output.get("sdxl_prompt", "")
                 neg = output.get("sdxl_negative_prompt", "")
                 script = output.get("blender_script", "")
@@ -64,7 +72,7 @@ async def run_pipeline(
                 })
 
             elif node_name == "blender_executor":
-                output = node_state.get_node_output("blender_executor")
+                output = _get_output(node_state, "blender_executor")
                 depth = output.get("depth_path", "")
                 frame = output.get("frame_path", "")
                 err = output.get("blender_error")
@@ -90,8 +98,8 @@ async def run_pipeline(
                     },
                 })
 
-        # ---- 节点 4: AI 图像生成 (从 state 获取最终输出) ----
-        enhancer_output = state.get_node_output("sdxl_enhancer")
+        # ---- 节点 4: AI 图像生成 (从最终 state dict 获取输出) ----
+        enhancer_output = _get_output(final_state or {}, "sdxl_enhancer")
         all_paths = enhancer_output.get("final_image_paths", [])
         final_image = enhancer_output.get("final_image_path", "")
 
