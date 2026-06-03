@@ -129,15 +129,35 @@ async function submitInteract() {
   try {
     await interact(store.currentTaskId, currentAction.value, descText.value.trim())
 
-    connectSSE(store.currentTaskId)
-      .on('interactive', (data) => {
-        store.status = 'waiting_user'
-        store.finalImageUrl = data.image_url
-      })
-      .on('error', (data) => {
-        store.status = 'error'
-        store.errorMessage = data.message || '交互失败'
-      })
+    // 场景变化需要走完整管线，注册所有事件类型
+    if (currentAction.value === 'scene') {
+      store.resetNodes()
+      connectSSE(store.currentTaskId)
+        .on('progress', (data) => store.handleProgress(data))
+        .on('grid', (data) => {
+          store.gridImageUrl = data.grid_url
+          store.gridImageUrls = data.image_urls || []
+        })
+        .on('interactive', (data) => {
+          store.status = 'waiting_user'
+          store.finalImageUrl = data.image_url
+          store.progress = 100
+        })
+        .on('error', (data) => {
+          store.status = 'error'
+          store.errorMessage = data.message || '交互失败'
+        })
+    } else {
+      connectSSE(store.currentTaskId)
+        .on('interactive', (data) => {
+          store.status = 'waiting_user'
+          store.finalImageUrl = data.image_url
+        })
+        .on('error', (data) => {
+          store.status = 'error'
+          store.errorMessage = data.message || '交互失败'
+        })
+    }
   } catch (e) {
     store.status = 'error'
     store.errorMessage = e.message

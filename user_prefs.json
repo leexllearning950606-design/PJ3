@@ -1,15 +1,27 @@
 {
   "version": 2,
   "liked_tags": {
-    "color_tone": [],
-    "lighting": [],
+    "color_tone": [
+      "warm atmosphere"
+    ],
+    "lighting": [
+      "golden hour",
+      "soft lighting"
+    ],
     "style": [],
     "mood": [],
     "composition": [],
     "quality": []
   },
   "disliked_tags": [],
-  "history": [],
+  "history": [
+    {
+      "input": "一个开心的女孩",
+      "final_prompt": "1girl, solo, safe, brown hair, twin braids, blue dress, sleeveless dress, barefoot, standing, leaning back, holding paintbrush, smiling, happy, eyes sparkling, looking at painting, perfect hands, anat",
+      "image": "./output\\enhanced\\final_0001.png",
+      "timestamp": "2026-06-03T17:34:49.206028"
+    }
+  ],
   "created": "2026-06-03T17:17:58.031441",
-  "updated": "2026-06-03T17:17:58.031441"
+  "updated": "2026-06-03T17:34:49.206028"
 }

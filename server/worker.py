@@ -171,13 +171,22 @@ async def run_interact(
     depth_path: str,
     event_queue: asyncio.Queue,
 ):
-    """仅重跑 SDXL + Hires Fix（交互重生成）。"""
+    """交互重生成：场景变化 → 完整管线，其他 → SDXL only。"""
     from server.task_store import get_task
     task = get_task(task_id)
     if not task:
         await event_queue.put({
             "event": "error", "data": {"message": "任务不存在"},
         })
+        return
+
+    # 换场景必须重跑 Blender（3D 几何体变化）
+    if action == "scene":
+        new_input = await _rewrite_scene_description(task.user_input or "", description)
+        task.version += 1
+        task.interactions.append({"action": action, "description": description, "new_scene": new_input})
+        update_task(task_id, version=task.version, interactions=task.interactions)
+        await run_pipeline(new_input, task_id, event_queue)
         return
 
     category_map = {
@@ -285,3 +294,24 @@ def _to_url(fs_path: str) -> str:
         if not p.startswith("/"):
             p = "/" + p
     return p
+
+
+async def _rewrite_scene_description(original_input: str, scene_request: str) -> str:
+    """用 LLM 将场景修改融入原始描述，返回新的用户输入。"""
+    from utils.helpers import get_llm
+    system = """你是一个场景描述改写助手。用户想改变画面中的场景/环境，你需要把新的场景融入原始描述中。
+
+规则：
+1. 保持人物、动作、情绪、光线等描述不变
+2. 只改变场景/环境相关的描述
+3. 输出 200-400 字的中文场景描述
+4. 直接输出改写后的文本，不要任何解释"""
+    try:
+        llm = get_llm(temperature=0.5)
+        response = await llm.ainvoke([
+            ("system", system),
+            ("user", f"原始描述：{original_input}\n\n新场景：{scene_request}\n\n请改写："),
+        ])
+        return response.content.strip() or original_input
+    except Exception:
+        return f"{original_input}，{scene_request}"
