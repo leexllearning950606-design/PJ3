@@ -4,7 +4,7 @@
     <div class="nav-links">
       <RouterLink to="/">生成</RouterLink>
       <RouterLink to="/history">历史</RouterLink>
-      <RouterLink to="/preferences">偏好</RouterLink>
+
       <RouterLink to="/compare">对比</RouterLink>
     </div>
   </nav>

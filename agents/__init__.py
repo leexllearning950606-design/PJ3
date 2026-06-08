@@ -2,5 +2,6 @@
 
 from .text_expander import text_expander
 from .coder_agent import coder_agent
+from .sdxl_prompt_gen import sdxl_prompt_gen
 from .blender_executor import blender_executor
 from .sdxl_enhancer import sdxl_enhancer

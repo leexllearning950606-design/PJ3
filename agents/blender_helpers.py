@@ -123,6 +123,16 @@ def add_cone(name, location, radius1=0.4, radius2=0.05, depth=0.3):
     return obj
 
 
+def add_torus(name, location, major_radius=0.5, minor_radius=0.15):
+    """创建圆环体（甜甜圈形状）。"""
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=major_radius, minor_radius=minor_radius, location=location
+    )
+    obj = bpy.context.object
+    obj.name = name
+    return obj
+
+
 def add_depth_blob(name_prefix, location, height=1.6, width=0.5):
     """在角色位置放一个简单椭球/圆柱体，为深度图提供人物占位。
 
@@ -168,13 +178,19 @@ def add_area_light(name, location, energy=400, size=5, color=(1, 1, 1), target=N
     """创建面光源 — 主光/补光的主力工具。
 
     energy: Cycles 瓦特，面光 200-800 为合理范围
+    size: 单个 float（正方形面光）或 (x, y) 元组（矩形面光）
     target: 可选 (x,y,z)，灯光自动瞄准该点
     """
     bpy.ops.object.light_add(type='AREA', location=location)
     obj = bpy.context.object
     obj.name = name
     obj.data.energy = energy
-    obj.data.size = size
+    # Blender 5.1+: size 是单个 float；矩形面光用 (size, size_y)
+    if isinstance(size, (int, float)):
+        obj.data.size = size
+    else:
+        obj.data.size = size[0]
+        obj.data.size_y = size[1]
     obj.data.color = color
     if target:
         _track_to(obj, target)
@@ -246,10 +262,14 @@ def add_camera(name, location, look_at=(0, 0, 1.5)):
 
     location: 摄像机位置 (x, y, z)
     look_at: 看向的目标点 (x, y, z)，默认看向场景中央略高
+
+    使用 35mm 广角镜头（~54° FOV），比默认 50mm（~40°）更宽，
+    确保多人场景中所有人物都在画面内。
     """
     bpy.ops.object.camera_add(location=location)
     cam = bpy.context.object
     cam.name = name
+    cam.data.lens = 35  # 35mm 广角，默认 50mm 太窄裁人物
     _track_to(cam, look_at)
     return cam
 
@@ -278,21 +298,35 @@ def smart_camera(name, targets, room_bounds, light_side="front"):
         max_spread = max(max_spread, d)
     max_spread = max(max_spread, 1.5)  # 最少也要覆盖一些范围
 
-    # 3. 摄像机距离 — 偏近景，确保面部和手部细节清晰
-    cam_dist = max_spread * 1.2 + 2.5  # 单人≈4.3
-    cam_dist = min(cam_dist, 5.0)  # 最远不超过5单位
+    # 3. 摄像机距离 — 根据目标散布计算，确保全貌入画
+    cam_dist = max_spread * 1.2 + 2.5  # 单人≈4.3, 双人3m间距≈6.1
+    cam_dist = min(cam_dist, 8.0)      # 最远不超过8单位
+    cam_dist = max(cam_dist, 3.5)      # 最近不近于3.5单位（防止贴脸）
 
-    # 4. 摄像机位置 — 根据主光方向选择从 Y+ 还是 Y- 拍摄
-    if light_side == "front":
-        cam_y = room_bounds['y_max'] - 0.5
+    # 4. 摄像机位置 — 自动选择有足够空间的一侧
+    margin = 0.3
+    front_space = room_bounds['y_max'] - margin - cy  # Y+侧可用距离
+    back_space = cy - (room_bounds['y_min'] + margin)  # Y-侧可用距离
+
+    # 选择空间更大的一侧（如果指定侧空间<所需距离，自动切）
+    if front_space >= back_space:
+        light_side = "front"
     else:
-        cam_y = room_bounds['y_min'] + 0.5
+        light_side = "back"
+
+    # 实际可用距离
+    usable = front_space if light_side == "front" else back_space
+    actual_dist = max(min(cam_dist, usable), 2.5)
+
+    if light_side == "front":
+        cam_y = cy + actual_dist
+    else:
+        cam_y = cy - actual_dist
 
     cam_x = cx
     cam_z = cz + 1.4
 
     # 确保摄像机在房间内
-    margin = 0.5
     cam_x = max(room_bounds['x_min'] + margin, min(room_bounds['x_max'] - margin, cam_x))
     cam_y = max(room_bounds['y_min'] + margin, min(room_bounds['y_max'] - margin, cam_y))
     cam_z = max(1.2, min(room_bounds['z_ceiling'] - 0.3, cam_z))
@@ -455,10 +489,10 @@ def _normalize_depth_image(filepath):
 
 
 def check_camera_visibility(cam, targets: list):
-    """验证所有目标点都在摄像机视野内。
+    """验证所有目标点都在摄像机视野内，并自动修正摄像机到能看见所有目标的位置。
 
     targets: [(name, (x, y, z)), ...] 每个人物/关键物体的名称和位置。
-    如果有人在摄像机后面或视野边缘外，抛出 RuntimeError 中断渲染。
+    自动调整摄像机位置或 look_at 来包含所有目标，而不是抛异常中断渲染。
     """
     cam_loc = cam.location
     look_at = _get_camera_look_at(cam)
@@ -469,35 +503,44 @@ def check_camera_visibility(cam, targets: list):
         raise RuntimeError("[摄像机自检失败] 摄像机位置和 look_at 相同！")
 
     import mathutils
+    needs_fix = False
+    all_targets_xyz = []
     for name, pos in targets:
+        all_targets_xyz.append(mathutils.Vector(pos))
         to_target = mathutils.Vector(pos) - cam_loc
         dist = to_target.length
         if dist < 0.001:
-            continue  # 目标在摄像机位置，跳过
+            continue
 
-        # 归一化点积 = cos(夹角)，1.0=正前方，0.0=90度侧面，<0=后方
         dot_norm = forward.dot(to_target) / (forward_len * dist)
 
         if dot_norm <= 0:
-            raise RuntimeError(
-                f"[摄像机自检失败] \"{name}\" 在摄像机后面！\n"
-                f"  摄像机位置: ({cam_loc.x:.1f}, {cam_loc.y:.1f}, {cam_loc.z:.1f})\n"
-                f"  摄像机看向: ({look_at.x:.1f}, {look_at.y:.1f}, {look_at.z:.1f})\n"
-                f"  {name}位置:  ({pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f})\n"
-                f"  cos(夹角)={dot_norm:.2f} (必须>0)\n"
-                f"  请把{name}移到摄像机前方，或把摄像机移到{name}的后方。"
-            )
+            print(f"[摄像机自检] ⚠ \"{name}\" 在摄像机后面 (cos={dot_norm:.2f})，将自动调整")
+            needs_fix = True
         elif dot_norm < 0.25:
-            raise RuntimeError(
-                f"[摄像机自检失败] \"{name}\" 在摄像机视野边缘外！\n"
-                f"  摄像机位置: ({cam_loc.x:.1f}, {cam_loc.y:.1f}, {cam_loc.z:.1f})\n"
-                f"  摄像机看向: ({look_at.x:.1f}, {look_at.y:.1f}, {look_at.z:.1f})\n"
-                f"  {name}位置:  ({pos[0]:.1f}, {pos[1]:.1f}, {pos[2]:.1f})\n"
-                f"  cos(夹角)={dot_norm:.2f} (必须>0.25，约75度视野内)\n"
-                f"  请把{name}移靠近画面中心，或调整摄像机 look_at 包含{name}。"
-            )
+            print(f"[摄像机自检] ⚠ \"{name}\" 在视野边缘 (cos={dot_norm:.2f})，将自动调整")
+            needs_fix = True
+        else:
+            print(f"[摄像机自检] ✓ \"{name}\" 在视野内 (cos={dot_norm:.2f}, dist={dist:.1f})")
 
-        print(f"[摄像机自检] ✓ \"{name}\" 在视野内 (cos={dot_norm:.2f}, dist={dist:.1f})")
+    if needs_fix:
+        # 自动修正：计算所有目标的中心点，把 look_at 指向中心，
+        # 同时把摄像机拉远以确保所有目标都在视野内
+        center = sum(all_targets_xyz, mathutils.Vector((0, 0, 0))) / len(all_targets_xyz)
+        new_look_at = center
+
+        # 计算需要的距离：最远目标到中心的距离 ÷ tan(FOV/2)
+        max_offset = max((p - center).length for p in all_targets_xyz)
+        # 默认 FOV ~50度，tan(25°)≈0.466，加 30% 安全边距
+        min_distance = max_offset / 0.466 * 1.3
+
+        # 保持原方向，但拉远到足够距离
+        old_dir = forward.normalized()
+        new_cam_loc = center - old_dir * max(min_distance, forward_len)
+
+        cam.location = new_cam_loc
+        _set_camera_look_at(cam, new_look_at)
+        print(f"[摄像机自检] 🔧 已自动修正摄像机: 位置→({new_cam_loc.x:.1f},{new_cam_loc.y:.1f},{new_cam_loc.z:.1f}), 看向→({new_look_at.x:.1f},{new_look_at.y:.1f},{new_look_at.z:.1f})")
 
 
 def _get_camera_look_at(cam):
@@ -510,6 +553,23 @@ def _get_camera_look_at(cam):
     dir_vec = mathutils.Vector((0, 0, -1))
     dir_vec.rotate(cam.rotation_euler)
     return cam.location + dir_vec * 2.0
+
+
+def _set_camera_look_at(cam, target):
+    """设置摄像机 Track To 约束的目标位置。"""
+    # 移除旧约束
+    for c in cam.constraints:
+        if c.type == 'TRACK_TO':
+            cam.constraints.remove(c)
+    # 创建空物体作为追踪目标
+    empty = bpy.data.objects.new(f"{cam.name}_track_target", None)
+    bpy.context.scene.collection.objects.link(empty)
+    empty.location = target
+    # 添加新约束
+    constraint = cam.constraints.new(type='TRACK_TO')
+    constraint.target = empty
+    constraint.track_axis = 'TRACK_NEGATIVE_Z'
+    constraint.up_axis = 'UP_Y'
 
 
 def render_all(cameras, output_dir):

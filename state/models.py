@@ -30,12 +30,24 @@ class CoderInput(BaseModel):
 
 
 class CoderOutput(BaseModel):
-    """Coder Agent 的 JSON 输出 — 单场景 + SDXL 提示词。"""
-    scene_description: str = Field(..., description="场景描述（环境、光线、色调、氛围）")
+    """Coder Agent 的 JSON 输出 — 只生成 Blender 脚本。"""
+    scene_description: str = Field(..., description="场景描述（环境、光线、色调、氛围、人物姿态）")
     blender_script: str = Field(..., description="单摄像机 Blender 脚本，渲染一张高精度场景")
-    sdxl_prompt: str = Field(..., description="英文 SDXL 提示词，用于 ControlNet Depth img2img 增强")
+
+
+# ==================== Node 2.5: SDXL Prompt Generator ====================
+
+class SDXLPromptInput(BaseModel):
+    """SDXL Prompt Generator 的 JSON 输入。"""
+    expanded_text: str = Field(..., description="text_expander 扩写后的场景描述")
+    scene_description: str = Field("", description="coder_agent 的场景概述（可选）")
+
+
+class SDXLPromptOutput(BaseModel):
+    """SDXL Prompt Generator 的 JSON 输出。"""
+    sdxl_prompt: str = Field(..., description="英文 SDXL 提示词，Danbooru 标签格式")
     sdxl_negative_prompt: str = Field(
-        default="blurry, low quality, distorted, ugly, bad anatomy, watermark, text",
+        default="lowres, worst quality, low quality, bad anatomy, bad hands, extra fingers, missing fingers, fused fingers, mutated hands, poorly drawn face, deformed, disfigured, text, signature, watermark, blurry, jpeg artifacts, ugly",
         description="SDXL 负向提示词",
     )
 

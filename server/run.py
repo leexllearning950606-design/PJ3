@@ -8,8 +8,10 @@ try:
 except Exception:
     pass
 
-# 确保项目根目录在 sys.path 中
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 确保项目根目录在 sys.path 中，且 CWD 为项目根目录
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
+os.chdir(PROJECT_ROOT)
 
 import uvicorn
 from config import config
@@ -23,4 +25,5 @@ if __name__ == "__main__":
         host=config.SERVER_HOST,
         port=config.SERVER_PORT,
         reload=True,
+        reload_dirs=["agents", "server", "state", "graph", "utils"],
     )

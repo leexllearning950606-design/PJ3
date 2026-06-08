@@ -180,7 +180,7 @@ async def api_tasks(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
 ):
-    """历史列表。"""
+    """历史列表（Web history.json）。"""
     results, total = search_tasks(search, page, limit)
     return {
         "tasks": [t.to_dict() for t in results],
@@ -199,13 +199,24 @@ async def api_task_detail(task_id: str):
     return task.to_dict()
 
 
+@router.delete("/tasks/{task_id}")
+async def api_delete_task(task_id: str):
+    """删除单条历史记录。"""
+    from server.task_store import delete_task
+    ok = delete_task(task_id)
+    if not ok:
+        raise HTTPException(404, "任务不存在")
+    return {"deleted": task_id}
+
+
 # ---- 偏好 ----
 
 @router.get("/preferences")
 async def api_get_prefs():
-    """获取当前偏好。"""
+    """获取当前偏好（每次从磁盘重新加载，确保 CLI 写入后同步）。"""
     from utils.preferences import get_prefs
     prefs = get_prefs(config.USER_PREFS_PATH)
+    prefs.reload()
     return prefs.data
 
 
@@ -215,20 +226,18 @@ async def api_update_prefs(req: Request):
     body = await req.json()
     from utils.preferences import get_prefs
     prefs = get_prefs(config.USER_PREFS_PATH)
+    prefs.reload()  # 先同步磁盘，防止覆盖 CLI 写入的数据
     category = body.get("category", "")
     tags = body.get("tags", [])
     dislike = body.get("dislike", False)
 
     if dislike:
-        if tags:
-            prefs.add_disliked(tags)
-            prefs.save()
+        # dislike 模式：直接替换整个 disliked_tags 列表（支持增删）
+        prefs.data["disliked_tags"] = [t.strip() for t in tags if t.strip()]
+        prefs.save()
     elif category:
-        if tags:
-            prefs.add_liked(tags, category)
-        else:
-            # 空 tags → 清空该分类
-            prefs.data["liked_tags"][category] = []
+        # 直接替换整个分类（支持单标签删除）
+        prefs.data["liked_tags"][category] = [t.strip() for t in tags if t.strip()]
         prefs.save()
     return prefs.data
 
@@ -241,7 +250,7 @@ async def api_reset_prefs():
     if os.path.isfile(path):
         os.remove(path)
     prefs = get_prefs(path)
-    prefs.data = prefs._default()
+    prefs.reload()  # 重新加载（文件已删除，会得到 _default()）
     prefs.save()
     return prefs.data
 

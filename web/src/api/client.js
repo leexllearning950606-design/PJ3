@@ -49,6 +49,12 @@ export async function fetchTask(taskId) {
   return res.json()
 }
 
+export async function deleteTask(taskId) {
+  const res = await fetch(`${BASE}/tasks/${taskId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 export async function fetchPreferences() {
   const res = await fetch(`${BASE}/preferences`)
   if (!res.ok) throw new Error(await res.text())

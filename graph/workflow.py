@@ -1,16 +1,19 @@
-"""LangGraph 工作流 — 4 节点管线。
+"""LangGraph 工作流 — 5 节点管线。
 
 数据流:
-    START → text_expander → coder_agent → blender_executor
-                                               │
-                                    ┌── 错误且重试<3 ──→ coder_agent (带错误JSON)
-                                    │
-                                    └── 成功 ──→ sdxl_enhancer → END
+    START → text_expander → sdxl_prompt_gen → coder_agent → blender_executor
+                                                                   │
+                                                        ┌── 错误且重试<3 ──→ coder_agent (带错误JSON)
+                                                        │
+                                                        └── 成功 ──→ sdxl_enhancer → END
+
+SDXL 提示词在 sdxl_prompt_gen 中独立生成，与 Blender 脚本并行处理。
+Blender 重试不会重新生成 SDXL 提示词。
 """
 
 from langgraph.graph import StateGraph, END
 from state.schema import WorkflowState
-from agents import text_expander, coder_agent, blender_executor, sdxl_enhancer
+from agents import text_expander, coder_agent, sdxl_prompt_gen, blender_executor, sdxl_enhancer
 from config import config
 
 
@@ -36,13 +39,15 @@ def build_graph() -> StateGraph:
 
     # 注册节点
     graph.add_node("text_expander", text_expander)
+    graph.add_node("sdxl_prompt_gen", sdxl_prompt_gen)
     graph.add_node("coder_agent", coder_agent)
     graph.add_node("blender_executor", blender_executor)
     graph.add_node("sdxl_enhancer", sdxl_enhancer)
 
     # 固定边
     graph.set_entry_point("text_expander")
-    graph.add_edge("text_expander", "coder_agent")
+    graph.add_edge("text_expander", "sdxl_prompt_gen")
+    graph.add_edge("sdxl_prompt_gen", "coder_agent")
     graph.add_edge("coder_agent", "blender_executor")
     graph.add_edge("sdxl_enhancer", END)
 

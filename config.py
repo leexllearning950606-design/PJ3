@@ -20,9 +20,6 @@ class Config:
     COMFYUI_CHECKPOINT = os.getenv(
         "COMFYUI_CHECKPOINT", "juggernautXL_v9.safetensors"
     )
-    COMFYUI_REFINER_CHECKPOINT = os.getenv(
-        "COMFYUI_REFINER_CHECKPOINT", ""
-    )  # 动漫模型无 Refiner，留空跳过
     COMFYUI_CONTROLNET_DEPTH = os.getenv(
         "COMFYUI_CONTROLNET_DEPTH", "diffusers_xl_depth_full.safetensors"
     )
@@ -42,9 +39,9 @@ class Config:
     ANIME_SCHEDULER = "normal"              # Euler a 配合 normal scheduler
     ANIME_STEPS = 28                        # 官方推荐 28 步
     ANIME_CFG = 5.0                         # 官方推荐 CFG 4-7，取 5
-    ANIME_DEPTH_CN_STRENGTH = 0.25
-    ANIME_DEPTH_CN_END = 0.55
-    ANIME_LORA_WEIGHT = 0.55
+    ANIME_DEPTH_CN_STRENGTH = 0.65
+    ANIME_DEPTH_CN_END = 0.80
+    ANIME_LORA_WEIGHT = float(os.getenv("ANIME_LORA_WEIGHT", "0.4"))  # 风格LoRA用0.55，手部LoRA用0.3-0.5
 
     # --- Hires Fix 高分辨率修复 ---
     ANIME_HIRES_ENABLED = True

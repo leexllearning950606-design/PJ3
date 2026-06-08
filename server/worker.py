@@ -1,7 +1,8 @@
 """LangGraph 管线包装 — 运行 pipeline 并发射 SSE 事件到 asyncio.Queue。"""
 import asyncio
 import os
-import traceback
+import shutil
+import time
 import httpx
 from config import config
 from graph import app
@@ -10,11 +11,24 @@ from agents.sdxl_enhancer import (
     public_run_single_pass,
     public_run_hires_pass,
     public_rewrite_prompt,
-    _check_frame_quality,
     _create_grid_image,
+    _blur_depth_full,
+    POLISH_ENABLED,
+    POLISH_DENOISE,
+    POLISH_CN_STRENGTH,
 )
 from utils.preferences import get_prefs
-from server.task_store import TaskRecord, update_task
+from server.task_store import update_task
+
+# ── 调试工具 ──
+
+def _ts() -> str:
+    """返回当前时间戳字符串，用于调试日志。"""
+    return time.strftime("%H:%M:%S", time.localtime())
+
+def _debug(msg: str):
+    """统一调试日志输出。"""
+    print(f"[DEBUG {_ts()}] {msg}")
 
 
 def _get_output(node_state: dict, node_name: str) -> dict:
@@ -29,11 +43,13 @@ async def run_pipeline(
     event_queue: asyncio.Queue,
 ):
     """执行完整的生成管线，通过 event_queue 推送进度事件。"""
+    _debug(f"[PKG] START task={task_id[:8]} input={user_input[:50]}...")
     state = WorkflowState(user_input=user_input)
     final_state = None  # 保存最后的状态 dict
 
     try:
         # ---- 节点 1: 场景扩写 ----
+        _debug("[PKG] → 场景扩写 running")
         await event_queue.put({
             "event": "progress",
             "data": {"node": "场景扩写", "status": "running", "progress": 0},
@@ -47,28 +63,54 @@ async def run_pipeline(
             if node_name == "text_expander":
                 output = _get_output(node_state, "text_expander")
                 expanded = output.get("expanded_text", "")
+                _debug(f"[PKG] 场景扩写 DONE ({len(expanded)} 字符)")
                 update_task(task_id, expanded_text=expanded)
                 await event_queue.put({
                     "event": "progress",
                     "data": {
-                        "node": "场景扩写", "status": "done", "progress": 25,
+                        "node": "场景扩写", "status": "done", "progress": 20,
                         "preview": expanded[:150],
                     },
+                })
+                await event_queue.put({
+                    "event": "progress",
+                    "data": {"node": "SDXL提示词生成", "status": "running", "progress": 25},
+                })
+
+            elif node_name == "sdxl_prompt_gen":
+                output = _get_output(node_state, "sdxl_prompt_gen")
+                prompt = output.get("sdxl_prompt", "")
+                neg = output.get("sdxl_negative_prompt", "")
+                _debug(f"[PKG] SDXL提示词生成 DONE ({len(prompt)}字符)")
+                update_task(task_id, sdxl_prompt=prompt, sdxl_negative_prompt=neg)
+                await event_queue.put({
+                    "event": "progress",
+                    "data": {
+                        "node": "SDXL提示词生成", "status": "done", "progress": 35,
+                        "preview": prompt[:200],
+                    },
+                })
+                await event_queue.put({
+                    "event": "progress",
+                    "data": {"node": "Blender脚本生成", "status": "running", "progress": 40},
                 })
 
             elif node_name == "coder_agent":
                 output = _get_output(node_state, "coder_agent")
-                prompt = output.get("sdxl_prompt", "")
-                neg = output.get("sdxl_negative_prompt", "")
                 script = output.get("blender_script", "")
-                update_task(task_id, sdxl_prompt=prompt,
-                            sdxl_negative_prompt=neg, blender_script=script)
+                scene = output.get("scene_description", "")
+                _debug(f"[PKG] Blender脚本生成 DONE (script={len(script)}字符)")
+                update_task(task_id, blender_script=script)
                 await event_queue.put({
                     "event": "progress",
                     "data": {
-                        "node": "提示词生成", "status": "done", "progress": 50,
-                        "preview": prompt[:200],
+                        "node": "Blender脚本生成", "status": "done", "progress": 55,
+                        "preview": scene[:150],
                     },
+                })
+                await event_queue.put({
+                    "event": "progress",
+                    "data": {"node": "场景渲染", "status": "running", "progress": 60},
                 })
 
             elif node_name == "blender_executor":
@@ -78,49 +120,89 @@ async def run_pipeline(
                 err = output.get("blender_error")
 
                 if err:
-                    update_task(task_id, error_message=err, status="error")
+                    # 不 return！LangGraph 会自动重试（条件边 → coder_agent → blender_executor）
+                    retry_count = output.get("retry_count", 0)
+                    _debug(f"[PKG] 场景渲染 ERROR (重试{retry_count}/{config.BLENDER_MAX_RETRIES}): {err[:100]}")
                     await event_queue.put({
-                        "event": "error",
-                        "data": {"node": "3D 场景渲染", "message": err},
+                        "event": "progress",
+                        "data": {
+                            "node": "场景渲染", "status": "running",
+                            "message": f"脚本出错，自动修复中... (重试 {retry_count}/{config.BLENDER_MAX_RETRIES})",
+                            "progress": 50,
+                        },
                     })
-                    return
+                    continue  # 继续处理 stream 中的重试
 
                 # 转为相对 URL
                 depth_url = _to_url(depth) if depth else ""
                 frame_url = _to_url(frame) if frame else ""
+                _debug(f"[PKG] 场景渲染 DONE depth={depth_url or '(无)'}")
                 update_task(task_id, depth_image_url=depth_url, frame_image_url=frame_url)
 
                 await event_queue.put({
                     "event": "progress",
                     "data": {
-                        "node": "3D 场景渲染", "status": "done", "progress": 75,
+                        "node": "场景渲染", "status": "done", "progress": 75,
                         "preview_url": depth_url,
                     },
                 })
 
+        # ---- 检查 Blender 是否最终失败 ----
+        blender_out = _get_output(final_state or {}, "blender_executor")
+        if blender_out.get("blender_error"):
+            err = blender_out["blender_error"]
+            _debug(f"[PKG] 场景渲染 FAILED (重试耗尽): {err[:100]}")
+            update_task(task_id, error_message=err, status="error")
+            await event_queue.put({
+                "event": "error",
+                "data": {"node": "场景渲染", "message": f"重试{config.BLENDER_MAX_RETRIES}次后仍失败: {err}"},
+            })
+            return
+
         # ---- 节点 4: AI 图像生成 (从最终 state dict 获取输出) ----
+        _debug("[PKG] → AI 图像生成 running")
+        await event_queue.put({
+            "event": "progress",
+            "data": {"node": "AI 图像生成", "status": "running", "progress": 85},
+        })
+
         enhancer_output = _get_output(final_state or {}, "sdxl_enhancer")
         all_paths = enhancer_output.get("final_image_paths", [])
         final_image = enhancer_output.get("final_image_path", "")
 
+        _debug(f"[PKG] AI 图像生成 output: paths={len(all_paths)}, image={bool(final_image)}")
+
         if not final_image and not all_paths:
+            _debug("[PKG] AI 图像生成 ERROR: 无图片输出")
             await event_queue.put({
                 "event": "error",
                 "data": {"node": "AI 图像生成", "message": "SDXL 未生成图片"},
             })
             return
 
-        # 构建 URL
+        # 构建 URL — 复制到任务专属文件名，避免不同任务覆盖
+        enhanced_dir = os.path.join(os.getcwd(), "output", "enhanced")
+        os.makedirs(enhanced_dir, exist_ok=True)
+
         if all_paths:
-            final_urls = [_to_url(p) for p in all_paths]
-            # 网格图保存到 output/enhanced/（可被静态文件服务访问）
-            import shutil
+            # 复制最终图片到任务专属路径
+            final_out = os.path.join(enhanced_dir, f"final_{task_id}.png")
+            try:
+                src = all_paths[0]
+                if os.path.isfile(src):
+                    shutil.copy2(src, final_out)
+                    final_urls = [_to_url(final_out)]
+                else:
+                    final_urls = [_to_url(p) for p in all_paths]
+            except Exception:
+                final_urls = [_to_url(p) for p in all_paths]
+
+            # 网格图保存到 output/enhanced/
             grid_url = ""
-            grid_out = os.path.join(os.getcwd(), "output", "enhanced", f"grid_{task_id}.png")
+            grid_out = os.path.join(enhanced_dir, f"grid_{task_id}.png")
             try:
                 grid_path = _create_grid_image(all_paths, config.COMFYUI_INPUT_DIR, idx=0)
                 if grid_path and os.path.isfile(grid_path):
-                    os.makedirs(os.path.dirname(grid_out), exist_ok=True)
                     shutil.copy2(grid_path, grid_out)
                     grid_url = _to_url(grid_out)
             except Exception:
@@ -128,13 +210,22 @@ async def run_pipeline(
             update_task(task_id, final_image_url=final_urls[0] if final_urls else "",
                         grid_image_url=grid_url)
         else:
-            final_urls = [_to_url(final_image)]
+            final_out = os.path.join(enhanced_dir, f"final_{task_id}.png")
+            try:
+                if os.path.isfile(final_image):
+                    shutil.copy2(final_image, final_out)
+                    final_urls = [_to_url(final_out)]
+                else:
+                    final_urls = [_to_url(final_image)]
+            except Exception:
+                final_urls = [_to_url(final_image)]
             update_task(task_id, final_image_url=final_urls[0])
 
         await event_queue.put({
             "event": "progress",
             "data": {"node": "AI 图像生成", "status": "done", "progress": 100},
         })
+
 
         if all_paths and grid_path:
             await event_queue.put({
@@ -143,6 +234,7 @@ async def run_pipeline(
             })
 
         # ---- 弹出交互菜单 ----
+        _debug(f"[PKG] → 交互菜单 ({len(final_urls)} URLs)")
         update_task(task_id, status="waiting_user")
         await event_queue.put({
             "event": "interactive",
@@ -155,7 +247,9 @@ async def run_pipeline(
         })
 
     except Exception as e:
+        import traceback
         tb = traceback.format_exc()
+        _debug(f"[PKG] EXCEPTION: {e}")
         update_task(task_id, error_message=str(e)[:300], status="error")
         await event_queue.put({
             "event": "error",
@@ -172,9 +266,11 @@ async def run_interact(
     event_queue: asyncio.Queue,
 ):
     """交互重生成：场景变化 → 完整管线，其他 → SDXL only。"""
+    _debug(f"[INTERACT] START task={task_id[:8]} action={action} desc={description[:50]}...")
     from server.task_store import get_task
     task = get_task(task_id)
     if not task:
+        _debug("[INTERACT] ERROR: 任务不存在")
         await event_queue.put({
             "event": "error", "data": {"message": "任务不存在"},
         })
@@ -182,6 +278,7 @@ async def run_interact(
 
     # 换场景必须重跑 Blender（3D 几何体变化）
     if action == "scene":
+        _debug("[INTERACT] → 场景变化，重跑完整管线")
         new_input = await _rewrite_scene_description(task.user_input or "", description)
         task.version += 1
         task.interactions.append({"action": action, "description": description, "new_scene": new_input})
@@ -196,6 +293,7 @@ async def run_interact(
     category = category_map.get(action, action)
 
     # 1. 用 LLM 改写 prompt
+    _debug(f"[INTERACT] → 改写prompt (category={category})")
     await event_queue.put({
         "event": "progress",
         "data": {"node": "AI 图像生成", "status": "running", "progress": 80},
@@ -208,52 +306,78 @@ async def run_interact(
     new_prompt = await public_rewrite_prompt(
         task.sdxl_prompt or "", description, category, pref_context,
     )
+    _debug(f"[INTERACT] prompt改写完成: len={len(new_prompt)} old_len={len(task.sdxl_prompt or '')}")
     update_task(task_id, sdxl_prompt=new_prompt)
 
     # 2. 生成新 seed
     import random
     seed = random.randint(1, 2_147_483_647)
+    _debug(f"[INTERACT] seed={seed}")
 
     # 3. 构建 ComfyUI client，执行 SDXL 生成
     async with httpx.AsyncClient(timeout=config.COMFYUI_TIMEOUT) as client:
-        depth_name = os.path.basename(depth_path) if depth_path else ""
-        frame_name = os.path.basename(task.frame_image_url or "") if task.frame_image_url else ""
+        # 模糊深度图: 与初始生成一致，radius=25.0
+        depth_name = ""
+        if depth_path and os.path.isfile(depth_path):
+            _debug(f"[INTERACT] 深度图模糊: {depth_path}")
+            blurred = _blur_depth_full(depth_path, output_dir=config.COMFYUI_INPUT_DIR)
+            depth_name = os.path.basename(blurred)
+        else:
+            _debug(f"[INTERACT] 无深度图 (path={depth_path}, exists={os.path.isfile(depth_path) if depth_path else 'N/A'})")
+
+        # img2img 源图: 使用已生成的动漫图片（而非 Blender 3D 原始帧）
+        comfyui_input = config.COMFYUI_INPUT_DIR
+        final_img_name = ""
+        if task.final_image_url:
+            # URL 是相对路径如 /output/enhanced/xxx.png，需要拼接项目根目录
+            url_path = task.final_image_url.lstrip("/")
+            final_img_path = os.path.join(os.getcwd(), url_path)
+            _debug(f"[INTERACT] 源图路径: {final_img_path} exists={os.path.isfile(final_img_path)}")
+            if os.path.isfile(final_img_path):
+                final_img_name = f"interact_src_{task_id}.png"
+                shutil.copy2(final_img_path, os.path.join(comfyui_input, final_img_name))
+                _debug(f"[INTERACT] 源图已复制: {final_img_name}")
+        else:
+            _debug("[INTERACT] WARNING: task.final_image_url 为空!")
+
+        # 按操作分级的 denoise: 画质越高需要越高 denoise, 但角色一致性需要越低 denoise
+        DENOISE_MAP = {
+            "lighting": 0.80,    # 全局色彩变化，高自由度
+            "character": 0.60,   # 保留面部特征，只改特定属性
+            "pose": 0.85,        # 姿态变化需要最大创作自由
+            "style": 0.75,       # 风格变化影响全图
+        }
+        denoise = DENOISE_MAP.get(action, 0.70)
+        _debug(f"[INTERACT] ComfyUI: img2img denoise={denoise} depth={bool(depth_name)} src={bool(final_img_name)}")
 
         result = await public_run_single_pass(
             client=client,
-            image_filename=frame_name,
+            image_filename=final_img_name,
             depth_filename=depth_name,
             positive_prompt=new_prompt,
             negative_prompt=task.sdxl_negative_prompt or "",
             seed=seed,
-            is_txt2img=False,       # img2img: 保留旧图结构
-            denoise=0.75,           # 高重绘度: 允许大幅改变
-            cn_strength=0.15,       # 弱深度约束: 只参考空间不要照搬
+            is_txt2img=False,       # img2img: 从动漫图出发微调
+            denoise=denoise,        # 按操作分级
+            cn_strength=0.25,       # 与初始生成一致
             prefix=f"v{task.version + 1}",
         )
 
         if not result:
+            _debug("[INTERACT] ERROR: SDXL 生成返回 None")
             await event_queue.put({
                 "event": "error", "data": {"message": "SDXL 生成失败"},
             })
             return
 
-        # 4. Hires Fix (可选)
-        if config.ANIME_HIRES_ENABLED:
-            await event_queue.put({
-                "event": "progress",
-                "data": {"node": "高分辨率修复", "status": "running", "progress": 90},
-            })
-            result = await public_run_hires_pass(
-                client=client,
-                image_path=result,
-                positive_prompt=new_prompt,
-                negative_prompt=task.sdxl_negative_prompt or "",
-                seed=seed,
-                prefix=f"v{task.version + 1}",
-            ) or result
+        # 4. Hires Fix (交互时跳过 — 源图已是高清，且 ComfyUI 耗时太长)
+        # 5. Polish 打磨 (交互时跳过 — 微调角色/光线等不需要打磨)
 
-    new_url = _to_url(result)
+    # 复制到任务专属路径，避免不同任务覆盖
+    final_out = os.path.join(os.getcwd(), "output", "enhanced", f"final_{task_id}_v{task.version + 1}.png")
+    os.makedirs(os.path.dirname(final_out), exist_ok=True)
+    shutil.copy2(result, final_out)
+    new_url = _to_url(final_out)
     task.version += 1
     task.interactions.append({
         "action": action, "description": description, "new_prompt": new_prompt,
@@ -263,6 +387,7 @@ async def run_interact(
         interactions=task.interactions,
     )
 
+    _debug(f"[INTERACT] DONE → interactive menu (v{task.version}) image={new_url}")
     await event_queue.put({
         "event": "interactive",
         "data": {
@@ -277,7 +402,7 @@ async def run_dislike(
     reason: str,
     event_queue: asyncio.Queue,
 ):
-    """用户不喜欢：LLM 分析原因 → 提取不喜欢的标签 → 记录。"""
+    """用户不喜欢：LLM 分析原因 → 记录偏好 → 改写提示词 → 重新生成。"""
     from server.task_store import get_task
     task = get_task(task_id)
     if not task:
@@ -286,12 +411,13 @@ async def run_dislike(
         })
         return
 
-    # 用 LLM 分析用户反馈，提取不喜欢的标签
+    # 1. 用 LLM 分析用户反馈，提取不喜欢的标签
+    _debug(f"[DISLIKE] START reason={reason[:80]}...")
     disliked_tags = await _analyze_dislike_reason(
         task.sdxl_prompt or "", reason,
     )
 
-    # 记录到偏好
+    # 2. 记录到偏好
     prefs = get_prefs(config.USER_PREFS_PATH)
     prefs.add_disliked(disliked_tags)
     prefs.add_history({
@@ -303,12 +429,95 @@ async def run_dislike(
         "disliked_tags": disliked_tags,
     })
     prefs.save()
+    _debug(f"[DISLIKE] 已记录不喜欢标签: {disliked_tags}")
 
-    update_task(task_id, status="done")
-
+    # 3. 改写提示词：根据用户反馈改善
     await event_queue.put({
-        "event": "complete",
-        "data": {"task_id": task_id, "message": f"已记录不喜欢: {', '.join(disliked_tags[:5])}"},
+        "event": "progress",
+        "data": {"node": "AI 图像生成", "status": "running", "progress": 80},
+    })
+
+    # 注入偏好（包含刚记录的不喜欢标签）
+    pref_context = prefs.get_injection_text()
+    dislike_context = f"用户不喜欢当前图片，原因: {reason}。请避免以下标签: {', '.join(disliked_tags)}" if disliked_tags else f"用户不喜欢当前图片，原因: {reason}。请改善。"
+    combined_context = f"{pref_context}\n\n{dislike_context}" if pref_context else dislike_context
+
+    new_prompt = await public_rewrite_prompt(
+        task.sdxl_prompt or "", reason, "不喜欢改进", combined_context,
+    )
+    _debug(f"[DISLIKE] prompt改写完成: len={len(new_prompt)}")
+    update_task(task_id, sdxl_prompt=new_prompt)
+
+    # 4. 重新生成（img2img，与 interact 类似）
+    import random
+    seed = random.randint(1, 2_147_483_647)
+
+    async with httpx.AsyncClient(timeout=config.COMFYUI_TIMEOUT) as client:
+        # 深度图
+        depth_name = ""
+        from server.task_store import get_task as _get_task
+        t = _get_task(task_id)
+        if t:
+            depth_path = t.depth_image_url
+            if depth_path:
+                depth_abs = os.path.join(os.getcwd(), depth_path.lstrip("/"))
+                if os.path.isfile(depth_abs):
+                    blurred = _blur_depth_full(depth_abs, output_dir=config.COMFYUI_INPUT_DIR)
+                    depth_name = os.path.basename(blurred)
+
+        # 源图
+        src_name = ""
+        if t and t.final_image_url:
+            src_path = os.path.join(os.getcwd(), t.final_image_url.lstrip("/"))
+            if os.path.isfile(src_path):
+                src_name = f"dislike_src_{task_id}.png"
+                shutil.copy2(src_path, os.path.join(config.COMFYUI_INPUT_DIR, src_name))
+
+        _debug(f"[DISLIKE] ComfyUI: img2img denoise=0.7 seed={seed}")
+
+        result = await public_run_single_pass(
+            client=client,
+            image_filename=src_name,
+            depth_filename=depth_name,
+            positive_prompt=new_prompt,
+            negative_prompt=task.sdxl_negative_prompt or "",
+            seed=seed,
+            is_txt2img=False,
+            denoise=0.70,
+            cn_strength=0.25,
+            prefix=f"dislike_v{task.version + 1}",
+        )
+
+        if not result:
+            _debug("[DISLIKE] ERROR: SDXL 生成失败")
+            await event_queue.put({
+                "event": "error", "data": {"message": "SDXL 生成失败"},
+            })
+            return
+
+        # Hires Fix 跳过 — 不喜欢重新生成同 interact，源图已是高清
+
+    # 保存结果
+    final_out = os.path.join(os.getcwd(), "output", "enhanced", f"final_{task_id}_dislike.png")
+    os.makedirs(os.path.dirname(final_out), exist_ok=True)
+    shutil.copy2(result, final_out)
+    new_url = _to_url(final_out)
+
+    task.version += 1
+    task.interactions.append({
+        "action": "dislike", "description": reason, "new_prompt": new_prompt,
+        "disliked_tags": disliked_tags,
+    })
+    update_task(task_id, final_image_url=new_url, version=task.version,
+                interactions=task.interactions)
+
+    _debug(f"[DISLIKE] DONE → 新图片: {new_url}")
+    await event_queue.put({
+        "event": "interactive",
+        "data": {
+            "type": "menu", "message": f"已根据反馈重新生成 (避免: {', '.join(disliked_tags[:3])})",
+            "image_url": new_url, "task_id": task_id,
+        },
     })
 
 
@@ -345,7 +554,7 @@ async def run_done(task_id: str):
     # 记录偏好 + 历史
     if task.sdxl_prompt:
         prefs = get_prefs(config.USER_PREFS_PATH)
-        prefs.learn_from_prompt(task.sdxl_prompt, positive=True)
+        await prefs.learn_from_prompt_async(task.sdxl_prompt)
         prefs.add_history({
             "input": task.user_input or "",
             "final_prompt": task.sdxl_prompt[:200],

@@ -7,10 +7,10 @@ export const useTaskStore = defineStore('task', () => {
   const progress = ref(0)
   const nodes = ref([
     { name: '场景扩写', status: 'pending' },
-    { name: '提示词生成', status: 'pending' },
-    { name: '3D 场景渲染', status: 'pending' },
+    { name: 'SDXL提示词生成', status: 'pending' },
+    { name: 'Blender脚本生成', status: 'pending' },
+    { name: '场景渲染', status: 'pending' },
     { name: 'AI 图像生成', status: 'pending' },
-    { name: '高分辨率修复', status: 'pending' },
   ])
   const finalImageUrl = ref('')
   const gridImageUrl = ref('')

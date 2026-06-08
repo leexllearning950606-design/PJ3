@@ -2,42 +2,51 @@
   "version": 2,
   "liked_tags": {
     "color_tone": [
-      "warm atmosphere"
+      "暖色调",
+      "高对比"
     ],
     "lighting": [
-      "golden hour",
-      "soft lighting",
-      "sunlight"
+      "日落暖光",
+      "柔光",
+      "轮廓光"
     ],
-    "style": [],
-    "mood": [],
+    "style": [
+      "动漫风",
+      "半写实"
+    ],
+    "mood": [
+      "平静",
+      "忧郁",
+      "怀旧",
+      "温馨"
+    ],
     "composition": [
-      "depth of field",
-      "bokeh"
+      "中景",
+      "俯视",
+      "景深"
     ],
-    "quality": []
+    "quality": [
+      "高细节",
+      "精致细节",
+      "详细背景",
+      "锐利对焦"
+    ]
   },
   "disliked_tags": [],
   "history": [
     {
-      "input": "一个开心的女孩",
-      "final_prompt": "1girl, solo, safe, brown hair, twin braids, blue dress, sleeveless dress, barefoot, standing, leaning back, holding paintbrush, smiling, happy, eyes sparkling, looking at painting, perfect hands, anat",
-      "image": "./output\\enhanced\\final_0001.png",
-      "timestamp": "2026-06-03T17:34:49.206028"
+      "input": "一个散步的女孩",
+      "final_prompt": "1girl, solo, safe, black hair, medium hair, hair tucked behind ear, bangs, windblown hair, mizugiwa, autumn, evening, sunset, orange sky, twilight, cityscape, street, trees, ginkgo leaves, falling lea",
+      "image": "/output/enhanced/final_da1fc78d.png",
+      "timestamp": "2026-06-06T01:08:40.404655"
     },
     {
-      "input": "一个爱笑的女孩",
-      "final_prompt": "1girl, solo, safe, brown hair, medium hair, messy hair, wind-blown hair, white dress, sleeveless dress, summer dress, bare legs, sneakers, side view, slightly tilted head, smiling, closed eyes, cresce",
-      "image": "./output\\enhanced\\final_0001.png",
-      "timestamp": "2026-06-03T17:50:20.486888"
-    },
-    {
-      "input": "在金色的沙滩上，一个爱笑的女孩赤脚站立，海风轻轻拂过她的长发。她微微仰起头，嘴角上扬，露出灿烂的笑容，眼睛弯成了月牙形。阳光洒在她的脸上，映出温暖的光晕，海浪拍打着她的脚踝，带来一阵清凉。远处，海鸥在蓝天与碧海之间盘旋，发出清脆的叫声。她伸出手，仿佛要抓住那飘来的海风，笑声随着潮汐的节奏轻轻回荡。沙滩上留下她浅浅的脚印，每一步都像在描绘快乐的轨迹。",
-      "final_prompt": "1girl, solo, safe, dark brown hair, long hair, wind-blown hair, white dress, sleeveless dress, standing, barefoot, on beach, at shoreline, looking up, smiling, closed eyes, happy, arms raised, reachin",
-      "image": "./output\\enhanced\\final_0001.png",
-      "timestamp": "2026-06-03T17:54:29.456464"
+      "input": "一个酷酷的女孩",
+      "final_prompt": "1girl, solo, safe, short hair, black hair, messy hair, black jacket, leather jacket, ripped jeans, black boots, martin boots, standing, leaning against glass, hands in pockets, looking down, cityscape",
+      "image": "/output/enhanced/final_0addce82.png",
+      "timestamp": "2026-06-06T13:06:50.959017"
     }
   ],
-  "created": "2026-06-03T17:17:58.031441",
-  "updated": "2026-06-03T17:54:29.456464"
+  "created": "2026-06-06T00:00:00",
+  "updated": "2026-06-06T13:06:50.959017"
 }

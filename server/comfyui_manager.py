@@ -23,21 +23,35 @@ class ComfyUIManager:
             print("[ComfyUI] 请手动启动 ComfyUI 或设置 COMFYUI_PATH 环境变量")
             return False
 
-        # 判断启动脚本
-        if sys.platform == "win32":
-            main_script = os.path.join(comfy_path, "main.py")
-            python_exe = os.path.join(comfy_path, "python_embeded", "python.exe")
-            if os.path.isfile(python_exe):
-                cmd = [python_exe, main_script]
-            else:
-                cmd = [sys.executable, main_script]
-        else:
-            main_script = os.path.join(comfy_path, "main.py")
-            cmd = [sys.executable, main_script]
-
         env = os.environ.copy()
         parsed = urlparse(config.COMFYUI_BASE_URL)
-        env["COMFYUI_PORT"] = str(parsed.port or 8188)
+        port = str(parsed.port or 8188)
+
+        # 检测 Electron 桌面版：
+        # 旧版: ComfyUI/ComfyUI.exe
+        # 新版: ComfyUI/Comfy Desktop/Comfy Desktop.exe
+        electron_exe = os.path.join(comfy_path, "ComfyUI.exe")
+        electron_exe_v2 = os.path.join(comfy_path, "Comfy Desktop", "Comfy Desktop.exe")
+        if sys.platform == "win32":
+            if os.path.isfile(electron_exe_v2):
+                electron_exe = electron_exe_v2
+            if os.path.isfile(electron_exe):
+                # 只传 port 如果非默认 8188
+                cmd = [electron_exe] if port == "8188" else [electron_exe, "--port", port]
+        else:
+            # Python portable / 源码版: python main.py
+            main_script = os.path.join(comfy_path, "main.py")
+            if not os.path.isfile(main_script):
+                main_script = os.path.join(comfy_path, "resources", "ComfyUI", "main.py")
+            if sys.platform == "win32":
+                python_exe = os.path.join(comfy_path, "python_embeded", "python.exe")
+                if os.path.isfile(python_exe):
+                    cmd = [python_exe, main_script]
+                else:
+                    cmd = [sys.executable, main_script]
+            else:
+                cmd = [sys.executable, main_script]
+            env["COMFYUI_PORT"] = port
 
         print(f"[ComfyUI] 启动: {' '.join(cmd)}")
         try:

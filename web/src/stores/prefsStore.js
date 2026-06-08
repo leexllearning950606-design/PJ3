@@ -70,14 +70,8 @@ export const usePrefsStore = defineStore('prefs', () => {
   ]
 
   function getDisplayLabel(tag) {
+    // 标签现在直接存中文，兼容旧英文标签用 TAG_CN 映射
     return TAG_CN[tag] || tag
-  }
-
-  function getEnglishTag(label) {
-    for (const [en, cn] of Object.entries(TAG_CN)) {
-      if (cn === label) return en
-    }
-    return label
   }
 
   async function load() {
@@ -87,9 +81,8 @@ export const usePrefsStore = defineStore('prefs', () => {
   }
 
   async function addTags(category, tags) {
-    // 用户输入中文 → 转英文存储
-    const eng = tags.map(t => getEnglishTag(t))
-    data.value = await updatePreferences(category, eng)
+    // 标签直接存中文
+    data.value = await updatePreferences(category, tags)
   }
 
   async function reset() {
@@ -97,6 +90,7 @@ export const usePrefsStore = defineStore('prefs', () => {
   }
 
   async function addDisliked(tags) {
+    // 标签直接存中文
     data.value = await updatePreferences('', tags, true)
   }
 

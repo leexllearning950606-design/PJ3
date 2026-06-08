@@ -2,7 +2,7 @@
   <div class="history-view">
     <h2>历史画廊</h2>
     <SearchBar @search="handleSearch" />
-    <HistoryGrid :tasks="tasks" @click="goDetail" />
+    <HistoryGrid :tasks="tasks" @click="goDetail" @delete="handleDelete" />
     <div class="pagination" v-if="total > limit">
       <button :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
       <span>{{ page }} / {{ Math.ceil(total / limit) }}</span>
@@ -14,7 +14,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { fetchTasks } from '../api/client'
+import { fetchTasks, deleteTask } from '../api/client'
 import SearchBar from '../components/SearchBar.vue'
 import HistoryGrid from '../components/HistoryGrid.vue'
 
@@ -41,6 +41,14 @@ function handleSearch(query) {
 
 function goPage(p) { page.value = p; loadTasks() }
 function goDetail(id) { router.push(`/history/${id}`) }
+
+async function handleDelete(taskId) {
+  if (!confirm('确定要删除这条记录吗？')) return
+  try {
+    await deleteTask(taskId)
+    loadTasks()
+  } catch (e) { console.error(e) }
+}
 
 onMounted(loadTasks)
 </script>
