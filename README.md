@@ -12,9 +12,10 @@ Node 1 — Text Expander            → enriched scene description
     │
     ├──► Node 2 — Tag Translator   → Danbooru prompt
     │
-    └──► Node 3 — Coder Agent      → Blender Python script
+    └──► Node 3 — Scene Layout     → JSON scene manifest
               │                        │
-              │                        ▼
+              │              Deterministic Parser → Blender Python script
+              │                        │
               │              Node 4 — Blender Executor → depth map + color frame
               │                        │
               │    ┌─── error (retry < 3) ───┘
@@ -28,8 +29,9 @@ Node 1 — Text Expander            → enriched scene description
 
 ## Key Features
 
-- **Spatial Control**: Blender-rendered depth maps guide ControlNet, preserving occlusion and multi-character layout
-- **Self-Correcting Pipeline**: Error feedback loop (max 3 retries) enables automatic Blender script repair
+- **Spatial Control**: LLM generates JSON scene manifest → deterministic parser → Blender depth map → ControlNet, enforcing precise multi-character layout and occlusion
+- **Self-Correcting Pipeline**: Error feedback loop (max 3 retries) for automatic JSON scene revision
+- **Adaptive ControlNet**: Dynamic strength/end_percent based on character count (single: 0.45/60%, multi: 0.65/80%)
 - **Preference Learning**: 6-dimension aesthetic model with scene-aware filtering and injection
 - **Web UI**: Vue 3 frontend with real-time SSE progress, interactive refinement, and dislike feedback
 
@@ -79,8 +81,8 @@ Key parameters in `config.py`:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `ANIME_DEPTH_CN_STRENGTH` | 0.45 | ControlNet depth strength |
-| `ANIME_DEPTH_CN_END` | 0.75 | ControlNet end step ratio |
+| `ANIME_DEPTH_CN_STRENGTH` | 0.65 | ControlNet depth strength (dynamically adjusted: 0.45 single, 0.65 multi) |
+| `ANIME_DEPTH_CN_END` | 0.80 | ControlNet end step ratio (dynamically adjusted: 0.60 single, 0.80 multi) |
 | `ANIME_STEPS` | 28 | Sampling steps |
 | `ANIME_CFG` | 5.0 | CFG scale |
 | `ANIME_HIRES_FACTOR` | 1.5 | Hires Fix upscale factor |
@@ -99,12 +101,14 @@ PJ3/
 ├── agents/
 │   ├── text_expander.py     # Node 1: scene expansion
 │   ├── sdxl_prompt_gen.py   # Node 2: tag translation
-│   ├── coder_agent.py       # Node 3: Blender script generation
+│   ├── coder_agent.py       # Node 3: JSON scene manifest generation
+│   ├── scene_parser.py      # Deterministic JSON → Blender Python translator
 │   ├── blender_executor.py  # Node 4: headless Blender execution
-│   ├── blender_helpers.py   # Curated Blender helper functions
-│   ├── sdxl_enhancer.py     # Node 5: SDXL + ControlNet
+│   ├── blender_helpers.py   # Curated Blender helper functions (35mm camera, smart layout)
+│   ├── sdxl_enhancer.py     # Node 5: SDXL + adaptive ControlNet
 │   ├── comfyui_client.py    # ComfyUI API client
 │   ├── comfyui_workflows.py # ComfyUI workflow definitions
+│   ├── prompt_rewriter.py   # LLM prompt rewriting for interactive refinement
 │   ├── quality_filter.py    # Automated quality checks
 │   └── error_utils.py       # Error handling utilities
 ├── graph/
@@ -126,6 +130,7 @@ PJ3/
 ```
 
 **Contributions:**
-1. Blender-to-ControlNet spatial constraint pipeline for anime generation
-2. Multi-agent decomposition with self-correcting retry loop (100% vs 0% single-agent)
-3. Scene-aware preference learning across 6 aesthetic dimensions
+1. **JSON scene manifest + deterministic parser**: LLM reasons about spatial layout (JSON), parser generates correct Blender code — eliminates spatial reasoning errors at the code level
+2. **3D-to-2D spatial constraint pipeline**: Blender-rendered depth maps with adaptive ControlNet (strength 0.45–0.65, end 60–80%) for anime generation
+3. **Self-correcting retry loop**: Error feedback to JSON revision (max 3 attempts) achieves 100% script execution success
+4. **Scene-aware preference learning**: 6 aesthetic dimensions with CN↔EN mapping and scene-compatibility filtering
